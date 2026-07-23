@@ -1,142 +1,78 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>GNC Cerca</title>
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
 <style>
+
 body{
-    font-family:Arial,sans-serif;
-    background:#f2f2f2;
-    margin:0;
-    padding:15px;
+margin:0;
+padding:15px;
+background:#f2f2f2;
+font-family:Arial,sans-serif;
 }
 
 h1{
-    text-align:center;
-    color:#0b5ed7;
+text-align:center;
+color:#0b5ed7;
 }
 
 button{
-    width:100%;
-    padding:15px;
-    border:none;
-    border-radius:8px;
-    background:#0b5ed7;
-    color:white;
-    font-size:18px;
+width:100%;
+padding:15px;
+font-size:18px;
+background:#0b5ed7;
+color:white;
+border:none;
+border-radius:8px;
+margin-bottom:15px;
+}
+
+#mapa{
+height:350px;
+border-radius:10px;
+margin-bottom:15px;
 }
 
 .estacion{
-    background:white;
-    margin-top:15px;
-    padding:15px;
-    border-radius:10px;
-    box-shadow:0 2px 6px rgba(0,0,0,.15);
+background:white;
+padding:15px;
+margin-bottom:10px;
+border-radius:10px;
+box-shadow:0 2px 5px rgba(0,0,0,.15);
 }
 
 .estacion h3{
-    margin:0;
+margin:0 0 8px;
 }
 
-a{
-    display:inline-block;
-    margin-top:10px;
-    padding:10px 15px;
-    border-radius:6px;
-    text-decoration:none;
-    color:white;
-}
-
-.waze{
-    background:#00c8ff;
-}
-
-.maps{
-    background:#34a853;
-}
 </style>
 
 </head>
+
 <body>
 
 <h1>⛽ GNC Cerca</h1>
 
-<button onclick="buscar()">Buscar estaciones cercanas</button>
+<button onclick="buscar()">
+Buscar estaciones cercanas
+</button>
+
+<div id="mapa"></div>
 
 <div id="resultado"></div>
 
-<script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-function distancia(lat1,lon1,lat2,lon2){
-
-const R=6371;
-
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLon=(lon2-lon1)*Math.PI/180;
-
-const a=
-Math.sin(dLat/2)**2+
-Math.cos(lat1*Math.PI/180)*
-Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)**2;
-
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-
-}
-
-function buscar(){
-
-navigator.geolocation.getCurrentPosition(async(pos)=>{
-
-const lat=pos.coords.latitude;
-const lon=pos.coords.longitude;
-
-const respuesta=await fetch("estaciones.json");
-
-const estaciones=await respuesta.json();
-
-estaciones.forEach(e=>{
-
-e.distancia=distancia(lat,lon,e.lat,e.lon);
-
-});
-
-estaciones.sort((a,b)=>a.distancia-b.distancia);
-
-let html="";
-
-estaciones.forEach(e=>{
-
-html+=`
-
-<div class="estacion">
-
-<h3>${e.nombre}</h3>
-
-<p>${e.direccion}</p>
-
-<p><b>${e.distancia.toFixed(1)} km</b></p>
-
-<a class="waze" href="https://waze.com/ul?ll=${e.lat},${e.lon}&navigate=yes" target="_blank">Waze</a>
-
-<a class="maps" href="https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}" target="_blank">Google Maps</a>
-
-</div>
-
-`;
-
-});
-
-document.getElementById("resultado").innerHTML=html;
-
-});
-
-}
-
-</script>
+<script src="app.js"></script>
 
 </body>
+
 </html>
