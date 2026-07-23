@@ -1,0 +1,26 @@
+[
+  {
+    "nombre": "YPF Rosario Centro",
+    "direccion": "Av. Pellegrini 2500, Rosario",
+    "lat": -32.9537,
+    "lon": -60.6505
+  },
+  {
+    "nombre": "Shell Córdoba Centro",
+    "direccion": "Av. Colón 1500, Córdoba",
+    "lat": -31.4167,
+    "lon": -64.1833
+  },
+  {
+    "nombre": "YPF Buenos Aires",
+    "direccion": "Av. Rivadavia 8000, CABA",
+    "lat": -34.6177,
+    "lon": -58.4445
+  },
+  {
+    "nombre": "Axion Mendoza",
+    "direccion": "Av. San Martín 1200, Mendoza",
+    "lat": -32.8895,
+    "lon": -68.8458
+  }
+]
