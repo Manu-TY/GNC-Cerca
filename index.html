@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GNC Cerca</title>
+
+  <style>
+    body{
+      font-family: Arial, sans-serif;
+      margin:0;
+      padding:20px;
+      background:#f5f5f5;
+      text-align:center;
+    }
+
+    h1{
+      color:#0b5ed7;
+    }
+
+    button{
+      width:100%;
+      padding:15px;
+      font-size:18px;
+      border:none;
+      border-radius:10px;
+      background:#0b5ed7;
+      color:white;
+      margin-top:20px;
+    }
+
+    #resultado{
+      margin-top:20px;
+      background:white;
+      padding:15px;
+      border-radius:10px;
+      box-shadow:0 2px 5px rgba(0,0,0,.2);
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>⛽ GNC Cerca</h1>
+
+<button onclick="ubicacion()">Obtener mi ubicación</button>
+
+<div id="resultado">
+Esperando...
+</div>
+
+<script>
+
+function ubicacion(){
+
+    if(!navigator.geolocation){
+        document.getElementById("resultado").innerHTML="Tu navegador no soporta GPS.";
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function(pos){
+
+        document.getElementById("resultado").innerHTML=
+        "<b>Latitud:</b> "+pos.coords.latitude+
+        "<br><b>Longitud:</b> "+pos.coords.longitude;
+
+    },function(){
+
+        document.getElementById("resultado").innerHTML="No se pudo obtener la ubicación.";
+
+    });
+
+}
+
+</script>
+
+</body>
+</html>
