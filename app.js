@@ -2,186 +2,196 @@ let mapa;
 let marcadores = [];
 
 function distancia(lat1, lon1, lat2, lon2) {
-
     const R = 6371;
-    const dLat = (lat2-lat1)*Math.PI/180;
-    const dLon = (lon2-lon1)*Math.PI/180;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
 
     const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos(lat1*Math.PI/180) *
-    Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)**2;
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) *
+        Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) ** 2;
 
-    return R * 2 * Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+async function cargarEstaciones(lat, lon) {
 
-async function buscar(){
+    const resultado = document.getElementById("resultado");
 
-const resultado=document.getElementById("resultado");
+    resultado.innerHTML = "Buscando estaciones...";
 
-resultado.innerHTML="Buscando estaciones ENARGAS...";
+    if (!mapa) {
 
+        mapa = L.map("mapa").setView([lat, lon], 13);
 
-navigator.geolocation.getCurrentPosition(async function(pos){
+        L.tileLayer(
+            "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+            {
+                attribution: "© OpenStreetMap"
+            }
+        ).addTo(mapa);
 
-const lat=pos.coords.latitude;
-const lon=pos.coords.longitude;
+    } else {
 
+        mapa.setView([lat, lon], 13);
 
-if(!mapa){
+        marcadores.forEach(m => mapa.removeLayer(m));
+        marcadores = [];
 
-mapa=L.map("mapa").setView([lat,lon],13);
+    }
 
-L.tileLayer(
-"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-{
-attribution:"© OpenStreetMap"
+    L.marker([lat, lon])
+        .addTo(mapa)
+        .bindPopup("📍 Punto de búsqueda")
+        .openPopup();
+
+    const url = "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=json";
+
+    const respuesta = await fetch(url);
+    const datos = await respuesta.json();
+
+    let estaciones = datos.features.map(e => {
+
+        const direccion =
+            (e.attributes.DIRECCION || "") +
+            " " +
+            (e.attributes.LOCALIDAD || "") +
+            " " +
+            (e.attributes.PROVINCIA || "");
+
+        return {
+
+            nombre:
+                e.attributes.RAZON_SOCIAL ||
+                e.attributes.RazonSocial ||
+                "Estación",
+
+            direccion: direccion,
+
+            lat: e.geometry.y,
+            lon: e.geometry.x
+
+        };
+
+    });
+
+    estaciones.forEach(e => {
+
+        e.distancia = distancia(
+            lat,
+            lon,
+            e.lat,
+            e.lon
+        );
+
+    });
+
+    estaciones.sort((a, b) => a.distancia - b.distancia);
+
+    resultado.innerHTML = "";
+
+    estaciones.slice(0, 10).forEach(e => {
+
+        const direccionMaps = encodeURIComponent(e.direccion);
+
+        const waze =
+            "https://waze.com/ul?ll=" +
+            e.lat +
+            "," +
+            e.lon +
+            "&navigate=yes";
+
+        const maps =
+            "https://www.google.com/maps/search/?api=1&query=" +
+            direccionMaps;
+
+        const marker = L.marker([e.lat, e.lon]).addTo(mapa);
+
+        marker.bindPopup(`
+            <b>${e.nombre}</b><br>
+            ${e.direccion}<br>
+            📏 ${e.distancia.toFixed(2)} km
+            <br><br>
+            <a target="_blank" href="${waze}">🚗 Waze</a>
+            <br><br>
+            <a target="_blank" href="${maps}">📍 Google Maps</a>
+        `);
+
+        marcadores.push(marker);
+
+        resultado.innerHTML += `
+            <div class="estacion">
+                <h3>⛽ ${e.nombre}</h3>
+                <p>${e.direccion}</p>
+                <p>📏 ${e.distancia.toFixed(2)} km</p>
+
+                <a target="_blank" href="${waze}">
+                🚗 Waze
+                </a>
+
+                &nbsp;
+
+                <a target="_blank" href="${maps}">
+                📍 Google Maps
+                </a>
+
+            </div>
+        `;
+    });
+
 }
-).addTo(mapa);
 
-}else{
+function buscar() {
 
-mapa.setView([lat,lon],13);
+    navigator.geolocation.getCurrentPosition(function(pos) {
 
-marcadores.forEach(m=>mapa.removeLayer(m));
-marcadores=[];
+        cargarEstaciones(
+            pos.coords.latitude,
+            pos.coords.longitude
+        );
+
+    });
 
 }
 
+async function buscarDestino() {
 
-let yo=L.marker([lat,lon])
-.addTo(mapa)
-.bindPopup("📍 Tu ubicación");
+    const texto = document
+        .getElementById("destino")
+        .value
+        .trim();
 
-marcadores.push(yo);
+    if (texto === "") {
 
+        alert("Escribí un destino.");
 
+        return;
 
-const url =
-"https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=json";
+    }
 
+    const url =
+        "https://nominatim.openstreetmap.org/search?format=json&q=" +
+        encodeURIComponent(texto);
 
-const respuesta=await fetch(url);
+    const respuesta = await fetch(url);
 
-const datos=await respuesta.json();
+    const lugares = await respuesta.json();
 
+    if (lugares.length === 0) {
 
+        alert("No encontré esa dirección.");
 
-let estaciones=datos.features.map(e=>{
+        return;
 
-return {
+    }
 
-nombre:
-e.attributes.RAZON_SOCIAL ||
-e.attributes.RazonSocial ||
-"Estación GNC",
+    cargarEstaciones(
 
-direccion:
-(e.attributes.DIRECCION || "")+
-" "+
-(e.attributes.LOCALIDAD || ""),
+        parseFloat(lugares[0].lat),
 
-lat:e.geometry.y,
-lon:e.geometry.x
+        parseFloat(lugares[0].lon)
 
-};
-
-});
-
-
-
-estaciones.forEach(e=>{
-
-e.distancia=distancia(
-lat,
-lon,
-e.lat,
-e.lon
-);
-
-});
-
-
-estaciones.sort((a,b)=>a.distancia-b.distancia);
-
-
-resultado.innerHTML="";
-
-
-
-estaciones.slice(0,10).forEach(e=>{
-
-
-let waze=
-"https://waze.com/ul?ll="+e.lat+","+e.lon+"&navigate=yes";
-
-
-let maps=
-"https://www.google.com/maps/search/?api=1&query="+e.lat+","+e.lon;
-
-
-
-let marcador=L.marker([e.lat,e.lon])
-.addTo(mapa);
-
-
-marcador.bindPopup(`
-
-<b>⛽ ${e.nombre}</b><br>
-${e.direccion}<br>
-📏 ${e.distancia.toFixed(2)} km
-
-<br><br>
-
-<a href="${waze}" target="_blank">
-🚗 Waze
-</a>
-
-<br><br>
-
-<a href="${maps}" target="_blank">
-📍 Maps
-</a>
-
-`);
-
-
-marcadores.push(marcador);
-
-
-
-resultado.innerHTML+=`
-
-<div class="estacion">
-
-<h3>⛽ ${e.nombre}</h3>
-
-<p>${e.direccion}</p>
-
-<p>
-📏 ${e.distancia.toFixed(2)} km
-</p>
-
-<a href="${waze}" target="_blank">
-🚗 Waze
-</a>
-
-&nbsp;
-
-<a href="${maps}" target="_blank">
-📍 Maps
-</a>
-
-</div>
-
-`;
-
-});
-
-
-});
-
+    );
 
 }
