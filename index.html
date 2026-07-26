@@ -24,6 +24,16 @@ text-align:center;
 color:#0b5ed7;
 }
 
+input{
+width:100%;
+padding:12px;
+font-size:17px;
+margin-bottom:10px;
+border-radius:8px;
+border:1px solid #ccc;
+box-sizing:border-box;
+}
+
 button{
 width:100%;
 padding:15px;
@@ -32,7 +42,7 @@ background:#0b5ed7;
 color:white;
 border:none;
 border-radius:8px;
-margin-bottom:15px;
+margin-bottom:10px;
 }
 
 #mapa{
@@ -61,8 +71,18 @@ margin:0 0 8px;
 
 <h1>⛽ GNC Cerca</h1>
 
+<input
+id="destino"
+type="text"
+placeholder="Destino (ej: Av. Corrientes 1234, CABA)"
+>
+
+<button onclick="buscarDestino()">
+Buscar cerca del destino
+</button>
+
 <button onclick="buscar()">
-Buscar estaciones cercanas
+Buscar cerca mío
 </button>
 
 <div id="mapa"></div>
