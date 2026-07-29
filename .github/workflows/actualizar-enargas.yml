@@ -1,0 +1,30 @@
+name: Actualizar base ENARGAS
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ejecutar actualización
+        run: node actualizar-enargas.js
+
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add estaciones.json
+          git diff --cached --quiet || git commit -m "Actualización automática ENARGAS"
+          git push
