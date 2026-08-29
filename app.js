@@ -1,7 +1,14 @@
 let mapa;
 let marcadores = [];
+let marcadorDestino = null;
+
+
+// ===============================
+// CALCULAR DISTANCIA
+// ===============================
 
 function distancia(lat1, lon1, lat2, lon2) {
+
   const R = 6371;
 
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -13,20 +20,32 @@ function distancia(lat1, lon1, lat2, lon2) {
     Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) ** 2;
 
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * 2 * Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1 - a)
+  );
 }
 
 
+// ===============================
+// MOSTRAR ESTACIONES
+// ===============================
+
 async function cargarEstaciones(lat, lon) {
 
-  const resultado = document.getElementById("resultado");
+  const resultado =
+    document.getElementById("resultado");
 
-  resultado.innerHTML = "Buscando estaciones...";
+  resultado.innerHTML =
+    "Buscando estaciones...";
 
+
+  // Crear mapa
 
   if (!mapa) {
 
-    mapa = L.map("mapa").setView([lat, lon], 13);
+    mapa = L.map("mapa")
+      .setView([lat, lon], 14);
 
     L.tileLayer(
       "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -37,19 +56,61 @@ async function cargarEstaciones(lat, lon) {
 
   } else {
 
-    mapa.setView([lat, lon], 13);
+    mapa.setView([lat, lon], 14);
 
-    marcadores.forEach(m => mapa.removeLayer(m));
+    marcadores.forEach(m =>
+      mapa.removeLayer(m)
+    );
 
     marcadores = [];
   }
 
 
-  L.marker([lat, lon])
-    .addTo(mapa)
-    .bindPopup("📍 Punto de búsqueda")
-    .openPopup();
+  // ===============================
+  // MARCADOR DEL DESTINO
+  // ===============================
 
+  if (marcadorDestino) {
+
+    mapa.removeLayer(marcadorDestino);
+  }
+
+
+  marcadorDestino = L.marker(
+    [lat, lon],
+    {
+      draggable: true
+    }
+  )
+  .addTo(mapa)
+  .bindPopup(
+    "📍 Destino<br>" +
+    "Podés mover este punto."
+  )
+  .openPopup();
+
+
+  // Cuando el usuario mueve el marcador
+
+  marcadorDestino.on(
+    "dragend",
+    function () {
+
+      const posicion =
+        marcadorDestino.getLatLng();
+
+      cargarEstaciones(
+        posicion.lat,
+        posicion.lng
+      );
+
+    }
+  );
+
+
+  // ===============================
+  // CONSULTA ENARGAS
+  // ===============================
 
   const url =
     "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=json";
@@ -57,9 +118,11 @@ async function cargarEstaciones(lat, lon) {
 
   try {
 
-    const respuesta = await fetch(url);
+    const respuesta =
+      await fetch(url);
 
-    const datos = await respuesta.json();
+    const datos =
+      await respuesta.json();
 
 
     if (!datos.features) {
@@ -71,180 +134,177 @@ async function cargarEstaciones(lat, lon) {
     }
 
 
-    let estaciones = datos.features.map(e => {
+    // ===============================
+    // PROCESAR ESTACIONES
+    // ===============================
 
-      const a = e.attributes || {};
+    let estaciones =
+      datos.features.map(e => {
 
-
-      // Datos oficiales de ENARGAS
-
-      const nombre =
-        a.RazonSocial ||
-        a.RAZON_SOCIAL ||
-        "Estación";
+        const a =
+          e.attributes || {};
 
 
-      const direccion =
-        a.Direccion ||
-        a.DIRECCION ||
-        "";
+        const nombre =
+          a.RazonSocial ||
+          a.RAZON_SOCIAL ||
+          "Estación";
 
 
-      const localidad =
-        a.Localidad ||
-        a.LOCALIDAD ||
-        "";
+        const direccion =
+          a.Direccion ||
+          a.DIRECCION ||
+          "";
 
 
-      const provincia =
-        a.Provincia ||
-        a.PROVINCIA ||
-        "";
+        const localidad =
+          a.Localidad ||
+          a.LOCALIDAD ||
+          "";
 
 
-      /*
-       * Las coordenadas oficiales están en los campos
-       * Latitud y Longitud.
-       *
-       * Usamos geometry solamente como respaldo.
-       */
-
-      let latEstacion = parseFloat(a.Latitud);
-      let lonEstacion = parseFloat(a.Longitud);
+        const provincia =
+          a.Provincia ||
+          a.PROVINCIA ||
+          "";
 
 
-      if (
-        !Number.isFinite(latEstacion) ||
-        !Number.isFinite(lonEstacion)
-      ) {
+        // Coordenadas oficiales
 
-        latEstacion = parseFloat(
-          e.geometry?.y
-        );
+        let latEstacion =
+          parseFloat(a.Latitud);
 
-        lonEstacion = parseFloat(
-          e.geometry?.x
-        );
-      }
+        let lonEstacion =
+          parseFloat(a.Longitud);
 
 
-      return {
+        // Respaldo
 
-        nombre: nombre.trim(),
+        if (
+          !Number.isFinite(latEstacion) ||
+          !Number.isFinite(lonEstacion)
+        ) {
 
-        direccion:
-          (direccion + " " + localidad + " " + provincia)
-          .replace(/\s+/g, " ")
-          .trim(),
+          latEstacion =
+            parseFloat(e.geometry?.y);
 
-        lat: latEstacion,
-
-        lon: lonEstacion
-      };
-
-    });
+          lonEstacion =
+            parseFloat(e.geometry?.x);
+        }
 
 
-    // Eliminamos registros sin coordenadas válidas
+        return {
 
-    estaciones = estaciones.filter(e =>
-      Number.isFinite(e.lat) &&
-      Number.isFinite(e.lon)
-    );
+          nombre: nombre.trim(),
+
+          direccion:
+            (
+              direccion +
+              " " +
+              localidad +
+              " " +
+              provincia
+            )
+            .replace(/\s+/g, " ")
+            .trim(),
+
+          lat: latEstacion,
+
+          lon: lonEstacion
+
+        };
+
+      });
 
 
-    // Calculamos distancia
+    // Eliminar estaciones sin coordenadas
+
+    estaciones =
+      estaciones.filter(e =>
+        Number.isFinite(e.lat) &&
+        Number.isFinite(e.lon)
+      );
+
+
+    // ===============================
+    // CALCULAR DISTANCIAS
+    // ===============================
 
     estaciones.forEach(e => {
 
-      e.distancia = distancia(
-        lat,
-        lon,
-        e.lat,
-        e.lon
-      );
+      e.distancia =
+        distancia(
+          lat,
+          lon,
+          e.lat,
+          e.lon
+        );
 
     });
 
 
-    // Ordenamos de la más cercana a la más lejana
+    // Ordenar
 
     estaciones.sort(
-      (a, b) => a.distancia - b.distancia
+      (a, b) =>
+        a.distancia - b.distancia
     );
 
 
     resultado.innerHTML = "";
 
 
-    // Mostramos las 10 más cercanas
+    // ===============================
+    // MOSTRAR LAS 10 MÁS CERCANAS
+    // ===============================
 
-    estaciones.slice(0, 10).forEach(e => {
-
-
-      const waze =
-        "https://waze.com/ul?ll=" +
-        e.lat +
-        "," +
-        e.lon +
-        "&navigate=yes";
+    estaciones
+      .slice(0, 10)
+      .forEach(e => {
 
 
-      // Google Maps usando coordenadas
+        // WAZE
 
-      const maps =
-        "https://www.google.com/maps/dir/?api=1&destination=" +
-        e.lat +
-        "," +
-        e.lon;
+        const waze =
+          "https://waze.com/ul?ll=" +
+          e.lat +
+          "," +
+          e.lon +
+          "&navigate=yes";
 
 
-      const marker =
-        L.marker([e.lat, e.lon])
+        // GOOGLE MAPS
+
+        const maps =
+          "https://www.google.com/maps/dir/?api=1&destination=" +
+          e.lat +
+          "," +
+          e.lon;
+
+
+        // MARCADOR
+
+        const marker =
+          L.marker([
+            e.lat,
+            e.lon
+          ])
           .addTo(mapa);
 
 
-      marker.bindPopup(`
+        marker.bindPopup(`
 
-        <b>${e.nombre}</b><br>
+          <b>${e.nombre}</b>
 
-        ${e.direccion}<br>
+          <br>
 
-        📏 ${e.distancia.toFixed(2)} km
+          ${e.direccion}
 
-        <br><br>
+          <br>
 
-        <a
-          target="_blank"
-          href="${waze}">
-          🚗 Waze
-        </a>
+          📏 ${e.distancia.toFixed(2)} km
 
-        <br><br>
-
-        <a
-          target="_blank"
-          href="${maps}">
-          📍 Google Maps
-        </a>
-
-      `);
-
-
-      marcadores.push(marker);
-
-
-      resultado.innerHTML += `
-
-        <div class="estacion">
-
-          <h3>⛽ ${e.nombre}</h3>
-
-          <p>${e.direccion}</p>
-
-          <p>
-            📏 ${e.distancia.toFixed(2)} km
-          </p>
+          <br><br>
 
           <a
             target="_blank"
@@ -252,7 +312,7 @@ async function cargarEstaciones(lat, lon) {
             🚗 Waze
           </a>
 
-          &nbsp;
+          <br><br>
 
           <a
             target="_blank"
@@ -260,11 +320,49 @@ async function cargarEstaciones(lat, lon) {
             📍 Google Maps
           </a>
 
-        </div>
+        `);
 
-      `;
 
-    });
+        marcadores.push(marker);
+
+
+        // LISTA
+
+        resultado.innerHTML += `
+
+          <div class="estacion">
+
+            <h3>
+              ⛽ ${e.nombre}
+            </h3>
+
+            <p>
+              ${e.direccion}
+            </p>
+
+            <p>
+              📏 ${e.distancia.toFixed(2)} km
+            </p>
+
+            <a
+              target="_blank"
+              href="${waze}">
+              🚗 Waze
+            </a>
+
+            &nbsp;
+
+            <a
+              target="_blank"
+              href="${maps}">
+              📍 Google Maps
+            </a>
+
+          </div>
+
+        `;
+
+      });
 
 
   } catch (error) {
@@ -278,6 +376,10 @@ async function cargarEstaciones(lat, lon) {
 
 }
 
+
+// ===============================
+// BUSCAR CERCA MÍO
+// ===============================
 
 function buscar() {
 
@@ -305,6 +407,10 @@ function buscar() {
 }
 
 
+// ===============================
+// BUSCAR DESTINO
+// ===============================
+
 async function buscarDestino() {
 
   const texto =
@@ -316,28 +422,41 @@ async function buscarDestino() {
 
   if (texto === "") {
 
-    alert("Escribí un destino.");
+    alert(
+      "Escribí un destino."
+    );
 
     return;
   }
 
 
+  // ===============================
+  // NOMINATIM
+  // ===============================
+
   const url =
-    "https://nominatim.openstreetmap.org/search?format=json&q=" +
+    "https://nominatim.openstreetmap.org/search?format=json&limit=5&q=" +
     encodeURIComponent(texto);
 
 
   try {
 
     const respuesta =
-      await fetch(url);
+      await fetch(url, {
+        headers: {
+          "Accept-Language": "es"
+        }
+      });
 
 
     const lugares =
       await respuesta.json();
 
 
-    if (lugares.length === 0) {
+    if (
+      !lugares ||
+      lugares.length === 0
+    ) {
 
       alert(
         "No encontré esa dirección."
@@ -347,12 +466,24 @@ async function buscarDestino() {
     }
 
 
+    // Tomamos el primer resultado
+
+    const lat =
+      parseFloat(
+        lugares[0].lat
+      );
+
+    const lon =
+      parseFloat(
+        lugares[0].lon
+      );
+
+
+    // Mostrar estaciones
+
     cargarEstaciones(
-
-      parseFloat(lugares[0].lat),
-
-      parseFloat(lugares[0].lon)
-
+      lat,
+      lon
     );
 
 
