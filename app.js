@@ -41,7 +41,7 @@ async function cargarEstaciones(lat, lon) {
         document.getElementById("resultado");
 
     resultado.innerHTML =
-        "Buscando estaciones...";
+        "⏳ Buscando estaciones de GNC...";
 
 
     // ========================================
@@ -78,7 +78,7 @@ async function cargarEstaciones(lat, lon) {
 
 
     // ========================================
-    // MARCADOR DESTINO
+    // MARCADOR DEL DESTINO
     // ========================================
 
     if (marcadorDestino) {
@@ -87,7 +87,6 @@ async function cargarEstaciones(lat, lon) {
             marcadorDestino
         );
     }
-
 
     marcadorDestino =
         L.marker(
@@ -98,7 +97,7 @@ async function cargarEstaciones(lat, lon) {
         )
         .addTo(mapa)
         .bindPopup(
-            "📍 Destino<br>" +
+            "📍 Punto de búsqueda<br>" +
             "Podés mover este punto."
         )
         .openPopup();
@@ -170,19 +169,11 @@ async function cargarEstaciones(lat, lon) {
                         estacion.attributes || {};
 
 
-                    // --------------------------------
-                    // NOMBRE
-                    // --------------------------------
-
                     const nombre =
                         a.RazonSocial ||
                         a.RAZON_SOCIAL ||
                         "Estación";
 
-
-                    // --------------------------------
-                    // DATOS DE ENARGAS
-                    // --------------------------------
 
                     const direccion =
                         a.Direccion ||
@@ -202,9 +193,7 @@ async function cargarEstaciones(lat, lon) {
                         "";
 
 
-                    // --------------------------------
                     // COORDENADAS OFICIALES
-                    // --------------------------------
 
                     let latEstacion =
                         parseFloat(
@@ -217,9 +206,7 @@ async function cargarEstaciones(lat, lon) {
                         );
 
 
-                    // --------------------------------
                     // RESPALDO
-                    // --------------------------------
 
                     if (
                         !Number.isFinite(
@@ -241,10 +228,6 @@ async function cargarEstaciones(lat, lon) {
                             );
                     }
 
-
-                    // --------------------------------
-                    // ARMAR DIRECCIÓN
-                    // --------------------------------
 
                     const direccionCompleta =
                         (
@@ -346,11 +329,6 @@ async function cargarEstaciones(lat, lon) {
         cercanas.forEach(
             estacion => {
 
-
-                // --------------------------------
-                // WAZE
-                // --------------------------------
-
                 const waze =
                     "https://waze.com/ul?ll=" +
                     estacion.lat +
@@ -359,10 +337,6 @@ async function cargarEstaciones(lat, lon) {
                     "&navigate=yes";
 
 
-                // --------------------------------
-                // GOOGLE MAPS
-                // --------------------------------
-
                 const maps =
                     "https://www.google.com/maps/dir/?api=1&destination=" +
                     estacion.lat +
@@ -370,9 +344,7 @@ async function cargarEstaciones(lat, lon) {
                     estacion.lon;
 
 
-                // --------------------------------
                 // MARCADOR
-                // --------------------------------
 
                 const marcador =
                     L.marker(
@@ -424,9 +396,7 @@ async function cargarEstaciones(lat, lon) {
                 );
 
 
-                // --------------------------------
                 // LISTA
-                // --------------------------------
 
                 resultado.innerHTML += `
 
@@ -469,10 +439,6 @@ async function cargarEstaciones(lat, lon) {
         );
 
 
-        // ========================================
-        // SIN RESULTADOS
-        // ========================================
-
         if (
             cercanas.length === 0
         ) {
@@ -504,26 +470,90 @@ async function cargarEstaciones(lat, lon) {
 
 function buscar() {
 
+    const resultado =
+        document.getElementById("resultado");
+
+
+    resultado.innerHTML =
+        "📍 Obteniendo tu ubicación precisa...";
+
+
+    if (
+        !navigator.geolocation
+    ) {
+
+        resultado.innerHTML =
+            "Este dispositivo no permite obtener la ubicación.";
+
+        return;
+    }
+
+
     navigator.geolocation.getCurrentPosition(
 
         function (posicion) {
 
+            const lat =
+                posicion.coords.latitude;
+
+            const lon =
+                posicion.coords.longitude;
+
+            const precision =
+                posicion.coords.accuracy;
+
+
+            console.log(
+                "Ubicación:",
+                lat,
+                lon,
+                "Precisión:",
+                precision,
+                "metros"
+            );
+
+
+            // Si la precisión es muy mala,
+            // avisamos pero continuamos.
+
+            if (
+                precision > 150
+            ) {
+
+                resultado.innerHTML =
+                    "⚠️ La ubicación obtenida tiene una precisión aproximada de " +
+                    Math.round(precision) +
+                    " metros.<br><br>" +
+                    "Buscando estaciones...";
+
+            }
+
+
             cargarEstaciones(
-
-                posicion.coords.latitude,
-
-                posicion.coords.longitude
-
+                lat,
+                lon
             );
 
         },
 
-        function () {
+        function (error) {
 
-            alert(
-                "No pudimos obtener tu ubicación."
+            console.error(
+                "Error de ubicación:",
+                error
             );
 
+
+            resultado.innerHTML =
+                "❌ No pudimos obtener tu ubicación.<br><br>" +
+                "Verificá que la ubicación/GPS esté activada y que hayas permitido el acceso a la ubicación.";
+
+        },
+
+        {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0
         }
 
     );
@@ -567,6 +597,16 @@ async function buscarDestino() {
     }
 
 
+    const resultado =
+        document.getElementById(
+            "resultado"
+        );
+
+
+    resultado.innerHTML =
+        "🔎 Buscando dirección...";
+
+
     // ========================================
     // ARCGIS
     // ========================================
@@ -594,54 +634,105 @@ async function buscarDestino() {
             !datos.candidates.length
         ) {
 
-            alert(
-                "No encontré esa dirección."
-            );
+            resultado.innerHTML =
+                "❌ No encontré esa dirección.";
 
             return;
         }
 
 
         // ========================================
-        // MEJOR RESULTADO
+        // MOSTRAR OPCIONES
         // ========================================
 
-        const candidato =
-            datos.candidates[0];
+        resultado.innerHTML = `
+
+            <div class="estacion">
+
+                <h3>
+                    📍 Elegí la ubicación
+                </h3>
+
+                <p>
+                    Encontramos varias coincidencias.
+                    Elegí la que corresponda:
+                </p>
+
+            </div>
+
+        `;
 
 
-        const lat =
-            Number(
-                candidato.location.y
-            );
+        datos.candidates.forEach(
+            (candidato, indice) => {
+
+                const lat =
+                    Number(
+                        candidato.location.y
+                    );
+
+                const lon =
+                    Number(
+                        candidato.location.x
+                    );
 
 
-        const lon =
-            Number(
-                candidato.location.x
-            );
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lon)
+                ) {
+                    return;
+                }
 
 
-        if (
-            !Number.isFinite(lat) ||
-            !Number.isFinite(lon)
-        ) {
-
-            alert(
-                "No pude obtener la ubicación de esa dirección."
-            );
-
-            return;
-        }
+                const direccion =
+                    candidato.address ||
+                    candidato.attributes?.Match_addr ||
+                    "Ubicación encontrada";
 
 
-        // ========================================
-        // CARGAR ESTACIONES
-        // ========================================
+                const score =
+                    candidato.score
+                        ? Math.round(
+                            candidato.score
+                        )
+                        : "";
 
-        cargarEstaciones(
-            lat,
-            lon
+
+                resultado.innerHTML += `
+
+                    <div
+                        class="estacion"
+                        style="
+                            cursor:pointer;
+                            border:2px solid #1565c0;
+                        "
+                        onclick="seleccionarDestino(
+                            ${lat},
+                            ${lon},
+                            ${indice}
+                        )"
+                    >
+
+                        <h3>
+                            📍 ${direccion}
+                        </h3>
+
+                        ${
+                            score
+                            ? `<p>Coincidencia: ${score}%</p>`
+                            : ""
+                        }
+
+                        <p>
+                            👉 Tocá para buscar GNC cerca de esta ubicación
+                        </p>
+
+                    </div>
+
+                `;
+
+            }
         );
 
 
@@ -652,10 +743,28 @@ async function buscarDestino() {
             error
         );
 
-        alert(
-            "No se pudo buscar la dirección."
-        );
+
+        resultado.innerHTML =
+            "❌ No se pudo buscar la dirección.";
 
     }
+
+}
+
+
+// ========================================
+// SELECCIONAR DESTINO
+// ========================================
+
+function seleccionarDestino(
+    lat,
+    lon,
+    indice
+) {
+
+    cargarEstaciones(
+        lat,
+        lon
+    );
 
 }
