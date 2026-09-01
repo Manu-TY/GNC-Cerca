@@ -2,15 +2,20 @@ let mapa;
 let marcadores = [];
 let marcadorDestino = null;
 
+
 // ========================================
 // CALCULAR DISTANCIA
 // ========================================
 
 function distancia(lat1, lon1, lat2, lon2) {
+
     const R = 6371;
 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLat =
+        (lat2 - lat1) * Math.PI / 180;
+
+    const dLon =
+        (lon2 - lon1) * Math.PI / 180;
 
     const a =
         Math.sin(dLat / 2) ** 2 +
@@ -18,46 +23,11 @@ function distancia(lat1, lon1, lat2, lon2) {
         Math.cos(lat2 * Math.PI / 180) *
         Math.sin(dLon / 2) ** 2;
 
-    return R * 2 * Math.atan2(
-        Math.sqrt(a),
-        Math.sqrt(1 - a)
-    );
-}
-
-
-// ========================================
-// REVERSE GEOCODING
-// OBTENER DIRECCIÓN REAL DESDE COORDENADAS
-// ========================================
-
-async function obtenerDireccion(lat, lon, direccionEnargas) {
-
-    try {
-
-        const url =
-            "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode" +
-            "?location=" +
-            encodeURIComponent(lon + "," + lat) +
-            "&f=json";
-
-        const respuesta = await fetch(url);
-        const datos = await respuesta.json();
-
-        if (
-            datos &&
-            datos.address &&
-            datos.address.Match_addr
-        ) {
-            return datos.address.Match_addr;
-        }
-
-    } catch (error) {
-
-        console.log("No se pudo obtener dirección corregida:", error);
-
-    }
-
-    return direccionEnargas || "Dirección no disponible";
+    return R * 2 *
+        Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+        );
 }
 
 
@@ -75,7 +45,7 @@ async function cargarEstaciones(lat, lon) {
 
 
     // ========================================
-    // CREAR / ACTUALIZAR MAPA
+    // MAPA
     // ========================================
 
     if (!mapa) {
@@ -86,43 +56,58 @@ async function cargarEstaciones(lat, lon) {
         L.tileLayer(
             "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
             {
-                attribution: "© OpenStreetMap"
+                attribution:
+                    "© OpenStreetMap"
             }
         ).addTo(mapa);
 
     } else {
 
-        mapa.setView([lat, lon], 14);
+        mapa.setView(
+            [lat, lon],
+            14
+        );
 
-        marcadores.forEach(m => {
-            mapa.removeLayer(m);
-        });
+        marcadores.forEach(
+            marcador =>
+                mapa.removeLayer(marcador)
+        );
 
         marcadores = [];
     }
 
 
     // ========================================
-    // MARCADOR DEL DESTINO
+    // MARCADOR DESTINO
     // ========================================
 
     if (marcadorDestino) {
-        mapa.removeLayer(marcadorDestino);
+
+        mapa.removeLayer(
+            marcadorDestino
+        );
     }
 
-    marcadorDestino = L.marker(
-        [lat, lon],
-        {
-            draggable: true
-        }
-    )
+
+    marcadorDestino =
+        L.marker(
+            [lat, lon],
+            {
+                draggable: true
+            }
+        )
         .addTo(mapa)
         .bindPopup(
-            "📍 Destino<br>Podés mover este punto."
-        );
+            "📍 Destino<br>" +
+            "Podés mover este punto."
+        )
+        .openPopup();
 
 
-    // Si se mueve el destino
+    // ========================================
+    // SI SE MUEVE EL DESTINO
+    // ========================================
+
     marcadorDestino.on(
         "dragend",
         function () {
@@ -134,6 +119,7 @@ async function cargarEstaciones(lat, lon) {
                 posicion.lat,
                 posicion.lng
             );
+
         }
     );
 
@@ -143,7 +129,12 @@ async function cargarEstaciones(lat, lon) {
     // ========================================
 
     const url =
-        "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=json";
+        "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query" +
+        "?where=1%3D1" +
+        "&outFields=*" +
+        "&returnGeometry=true" +
+        "&outSR=4326" +
+        "&f=json";
 
 
     try {
@@ -155,7 +146,10 @@ async function cargarEstaciones(lat, lon) {
             await respuesta.json();
 
 
-        if (!datos.features) {
+        if (
+            !datos.features ||
+            !datos.features.length
+        ) {
 
             resultado.innerHTML =
                 "No se pudieron obtener las estaciones de ENARGAS.";
@@ -169,88 +163,120 @@ async function cargarEstaciones(lat, lon) {
         // ========================================
 
         let estaciones =
-            datos.features.map(e => {
+            datos.features.map(
+                estacion => {
 
-                const a =
-                    e.attributes || {};
-
-
-                const nombre =
-                    a.RazonSocial ||
-                    a.RAZON_SOCIAL ||
-                    "Estación";
+                    const a =
+                        estacion.attributes || {};
 
 
-                const direccion =
-                    a.Direccion ||
-                    a.DIRECCION ||
-                    "";
+                    // --------------------------------
+                    // NOMBRE
+                    // --------------------------------
+
+                    const nombre =
+                        a.RazonSocial ||
+                        a.RAZON_SOCIAL ||
+                        "Estación";
 
 
-                const localidad =
-                    a.Localidad ||
-                    a.LOCALIDAD ||
-                    "";
+                    // --------------------------------
+                    // DATOS DE ENARGAS
+                    // --------------------------------
+
+                    const direccion =
+                        a.Direccion ||
+                        a.DIRECCION ||
+                        "";
 
 
-                const provincia =
-                    a.Provincia ||
-                    a.PROVINCIA ||
-                    "";
+                    const localidad =
+                        a.Localidad ||
+                        a.LOCALIDAD ||
+                        "";
 
 
-                // ========================================
-                // COORDENADAS ENARGAS
-                // ========================================
-
-                let latEstacion =
-                    parseFloat(a.Latitud);
-
-                let lonEstacion =
-                    parseFloat(a.Longitud);
+                    const provincia =
+                        a.Provincia ||
+                        a.PROVINCIA ||
+                        "";
 
 
-                // Si no existen, usar geometría
-                if (
-                    !Number.isFinite(latEstacion) ||
-                    !Number.isFinite(lonEstacion)
-                ) {
+                    // --------------------------------
+                    // COORDENADAS OFICIALES
+                    // --------------------------------
 
-                    latEstacion =
-                        parseFloat(e.geometry?.y);
+                    let latEstacion =
+                        parseFloat(
+                            a.Latitud
+                        );
 
-                    lonEstacion =
-                        parseFloat(e.geometry?.x);
+                    let lonEstacion =
+                        parseFloat(
+                            a.Longitud
+                        );
+
+
+                    // --------------------------------
+                    // RESPALDO
+                    // --------------------------------
+
+                    if (
+                        !Number.isFinite(
+                            latEstacion
+                        ) ||
+                        !Number.isFinite(
+                            lonEstacion
+                        )
+                    ) {
+
+                        latEstacion =
+                            parseFloat(
+                                estacion.geometry?.y
+                            );
+
+                        lonEstacion =
+                            parseFloat(
+                                estacion.geometry?.x
+                            );
+                    }
+
+
+                    // --------------------------------
+                    // ARMAR DIRECCIÓN
+                    // --------------------------------
+
+                    const direccionCompleta =
+                        (
+                            direccion +
+                            " " +
+                            localidad +
+                            " " +
+                            provincia
+                        )
+                        .replace(/\s+/g, " ")
+                        .trim();
+
+
+                    return {
+
+                        nombre:
+                            nombre
+                                .toString()
+                                .trim(),
+
+                        direccion:
+                            direccionCompleta,
+
+                        lat:
+                            latEstacion,
+
+                        lon:
+                            lonEstacion
+                    };
+
                 }
-
-
-                const direccionEnargas =
-                    (
-                        direccion +
-                        " " +
-                        localidad +
-                        " " +
-                        provincia
-                    )
-                    .replace(/\s+/g, " ")
-                    .trim();
-
-
-                return {
-
-                    nombre:
-                        nombre
-                            .toString()
-                            .trim(),
-
-                    direccionEnargas,
-
-                    lat: latEstacion,
-
-                    lon: lonEstacion
-                };
-
-            });
+            );
 
 
         // ========================================
@@ -258,9 +284,14 @@ async function cargarEstaciones(lat, lon) {
         // ========================================
 
         estaciones =
-            estaciones.filter(e =>
-                Number.isFinite(e.lat) &&
-                Number.isFinite(e.lon)
+            estaciones.filter(
+                estacion =>
+                    Number.isFinite(
+                        estacion.lat
+                    ) &&
+                    Number.isFinite(
+                        estacion.lon
+                    )
             );
 
 
@@ -268,16 +299,19 @@ async function cargarEstaciones(lat, lon) {
         // CALCULAR DISTANCIAS
         // ========================================
 
-        estaciones.forEach(e => {
+        estaciones.forEach(
+            estacion => {
 
-            e.distancia =
-                distancia(
-                    lat,
-                    lon,
-                    e.lat,
-                    e.lon
-                );
-        });
+                estacion.distancia =
+                    distancia(
+                        lat,
+                        lon,
+                        estacion.lat,
+                        estacion.lon
+                    );
+
+            }
+        );
 
 
         // ========================================
@@ -286,136 +320,87 @@ async function cargarEstaciones(lat, lon) {
 
         estaciones.sort(
             (a, b) =>
-                a.distancia - b.distancia
+                a.distancia -
+                b.distancia
         );
 
 
         // ========================================
-        // TOMAR LAS 10 MÁS CERCANAS
+        // 10 MÁS CERCANAS
         // ========================================
 
         const cercanas =
-            estaciones.slice(0, 10);
-
-
-        resultado.innerHTML =
-            "Procesando direcciones...";
-
-
-        // ========================================
-        // CORREGIR DIRECCIONES MEDIANTE
-        // LAS COORDENADAS
-        // ========================================
-
-        for (const e of cercanas) {
-
-            e.direccion =
-                await obtenerDireccion(
-                    e.lat,
-                    e.lon,
-                    e.direccionEnargas
-                );
-        }
+            estaciones.slice(
+                0,
+                10
+            );
 
 
         resultado.innerHTML = "";
 
 
         // ========================================
-        // MOSTRAR ESTACIONES
+        // MOSTRAR RESULTADOS
         // ========================================
 
-        cercanas.forEach(e => {
+        cercanas.forEach(
+            estacion => {
 
 
-            // ========================================
-            // WAZE
-            // ========================================
+                // --------------------------------
+                // WAZE
+                // --------------------------------
 
-            const waze =
-                "https://waze.com/ul?ll=" +
-                e.lat +
-                "," +
-                e.lon +
-                "&navigate=yes";
-
-
-            // ========================================
-            // GOOGLE MAPS
-            // ========================================
-
-            const maps =
-                "https://www.google.com/maps/dir/?api=1&destination=" +
-                e.lat +
-                "," +
-                e.lon;
+                const waze =
+                    "https://waze.com/ul?ll=" +
+                    estacion.lat +
+                    "," +
+                    estacion.lon +
+                    "&navigate=yes";
 
 
-            // ========================================
-            // MARCADOR
-            // ========================================
+                // --------------------------------
+                // GOOGLE MAPS
+                // --------------------------------
 
-            const marker =
-                L.marker([
-                    e.lat,
-                    e.lon
-                ])
+                const maps =
+                    "https://www.google.com/maps/dir/?api=1&destination=" +
+                    estacion.lat +
+                    "," +
+                    estacion.lon;
+
+
+                // --------------------------------
+                // MARCADOR
+                // --------------------------------
+
+                const marcador =
+                    L.marker(
+                        [
+                            estacion.lat,
+                            estacion.lon
+                        ]
+                    )
                     .addTo(mapa);
 
 
-            marker.bindPopup(`
+                marcador.bindPopup(`
 
-                <b>⛽ ${e.nombre}</b>
+                    <b>
+                        ⛽ ${estacion.nombre}
+                    </b>
 
-                <br><br>
+                    <br><br>
 
-                ${e.direccion}
+                    ${estacion.direccion}
 
-                <br><br>
+                    <br><br>
 
-                📏 ${e.distancia.toFixed(2)} km
+                    📏
+                    ${estacion.distancia.toFixed(2)}
+                    km
 
-                <br><br>
-
-                <a
-                    target="_blank"
-                    href="${waze}">
-                    🚗 Waze
-                </a>
-
-                <br><br>
-
-                <a
-                    target="_blank"
-                    href="${maps}">
-                    📍 Google Maps
-                </a>
-
-            `);
-
-
-            marcadores.push(marker);
-
-
-            // ========================================
-            // LISTA
-            // ========================================
-
-            resultado.innerHTML += `
-
-                <div class="estacion">
-
-                    <h3>
-                        ⛽ ${e.nombre}
-                    </h3>
-
-                    <p>
-                        ${e.direccion}
-                    </p>
-
-                    <p>
-                        📏 ${e.distancia.toFixed(2)} km
-                    </p>
+                    <br><br>
 
                     <a
                         target="_blank"
@@ -423,7 +408,7 @@ async function cargarEstaciones(lat, lon) {
                         🚗 Waze
                     </a>
 
-                    &nbsp;&nbsp;
+                    <br><br>
 
                     <a
                         target="_blank"
@@ -431,13 +416,66 @@ async function cargarEstaciones(lat, lon) {
                         📍 Google Maps
                     </a>
 
-                </div>
-
-            `;
-        });
+                `);
 
 
-        if (cercanas.length === 0) {
+                marcadores.push(
+                    marcador
+                );
+
+
+                // --------------------------------
+                // LISTA
+                // --------------------------------
+
+                resultado.innerHTML += `
+
+                    <div class="estacion">
+
+                        <h3>
+                            ⛽
+                            ${estacion.nombre}
+                        </h3>
+
+                        <p>
+                            ${estacion.direccion}
+                        </p>
+
+                        <p>
+                            📏
+                            ${estacion.distancia.toFixed(2)}
+                            km
+                        </p>
+
+                        <a
+                            target="_blank"
+                            href="${waze}">
+                            🚗 Waze
+                        </a>
+
+                        &nbsp;&nbsp;
+
+                        <a
+                            target="_blank"
+                            href="${maps}">
+                            📍 Google Maps
+                        </a>
+
+                    </div>
+
+                `;
+
+            }
+        );
+
+
+        // ========================================
+        // SIN RESULTADOS
+        // ========================================
+
+        if (
+            cercanas.length === 0
+        ) {
 
             resultado.innerHTML =
                 "No encontramos estaciones de GNC en la zona.";
@@ -447,11 +485,16 @@ async function cargarEstaciones(lat, lon) {
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Error:",
+            error
+        );
 
         resultado.innerHTML =
             "Ocurrió un error al consultar ENARGAS.";
+
     }
+
 }
 
 
@@ -463,36 +506,44 @@ function buscar() {
 
     navigator.geolocation.getCurrentPosition(
 
-        function(pos) {
+        function (posicion) {
 
             cargarEstaciones(
-                pos.coords.latitude,
-                pos.coords.longitude
+
+                posicion.coords.latitude,
+
+                posicion.coords.longitude
+
             );
 
         },
 
-        function() {
+        function () {
 
             alert(
                 "No pudimos obtener tu ubicación."
             );
+
         }
+
     );
+
 }
 
 
 // ========================================
-// BUSCAR DESTINO CON ARCGIS
+// BUSCAR DESTINO
 // ========================================
 
 async function buscarDestino() {
 
-    const elemento =
-        document.getElementById("destino");
+    const campo =
+        document.getElementById(
+            "destino"
+        );
 
 
-    if (!elemento) {
+    if (!campo) {
 
         alert(
             "No se encontró el campo de destino."
@@ -503,10 +554,10 @@ async function buscarDestino() {
 
 
     const texto =
-        elemento.value.trim();
+        campo.value.trim();
 
 
-    if (texto === "") {
+    if (!texto) {
 
         alert(
             "Escribí un destino."
@@ -517,7 +568,7 @@ async function buscarDestino() {
 
 
     // ========================================
-    // GEOCODIFICADOR ARCGIS
+    // ARCGIS
     // ========================================
 
     const url =
@@ -534,14 +585,13 @@ async function buscarDestino() {
         const respuesta =
             await fetch(url);
 
-
         const datos =
             await respuesta.json();
 
 
         if (
             !datos.candidates ||
-            datos.candidates.length === 0
+            !datos.candidates.length
         ) {
 
             alert(
@@ -553,7 +603,7 @@ async function buscarDestino() {
 
 
         // ========================================
-        // TOMAR MEJOR RESULTADO
+        // MEJOR RESULTADO
         // ========================================
 
         const candidato =
@@ -597,10 +647,15 @@ async function buscarDestino() {
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Error:",
+            error
+        );
 
         alert(
             "No se pudo buscar la dirección."
         );
+
     }
+
 }
