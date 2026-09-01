@@ -1,6 +1,10 @@
 let mapa;
 let marcadores = [];
 let marcadorDestino = null;
+let marcadorUsuario = null;
+let circuloPrecision = null;
+
+let ultimaUbicacion = null;
 
 
 // ========================================
@@ -32,21 +36,10 @@ function distancia(lat1, lon1, lat2, lon2) {
 
 
 // ========================================
-// CARGAR ESTACIONES
+// CREAR / ACTUALIZAR MAPA
 // ========================================
 
-async function cargarEstaciones(lat, lon) {
-
-    const resultado =
-        document.getElementById("resultado");
-
-    resultado.innerHTML =
-        "⏳ Buscando estaciones de GNC...";
-
-
-    // ========================================
-    // MAPA
-    // ========================================
+function prepararMapa(lat, lon) {
 
     if (!mapa) {
 
@@ -69,58 +62,141 @@ async function cargarEstaciones(lat, lon) {
         );
 
         marcadores.forEach(
-            marcador =>
-                mapa.removeLayer(marcador)
+            marcador => mapa.removeLayer(marcador)
         );
 
         marcadores = [];
     }
+}
 
 
-    // ========================================
-    // MARCADOR DEL DESTINO
-    // ========================================
+// ========================================
+// MARCADOR DEL USUARIO
+// ========================================
 
-    if (marcadorDestino) {
+function mostrarUbicacionUsuario(
+    lat,
+    lon,
+    precision
+) {
+
+    if (marcadorUsuario) {
 
         mapa.removeLayer(
-            marcadorDestino
+            marcadorUsuario
         );
     }
 
-    marcadorDestino =
+    if (circuloPrecision) {
+
+        mapa.removeLayer(
+            circuloPrecision
+        );
+    }
+
+
+    marcadorUsuario =
         L.marker(
-            [lat, lon],
-            {
-                draggable: true
-            }
+            [lat, lon]
         )
         .addTo(mapa)
         .bindPopup(
-            "📍 Punto de búsqueda<br>" +
-            "Podés mover este punto."
+            "📍 <b>Tu ubicación</b><br>" +
+            "Precisión aproximada: " +
+            Math.round(precision) +
+            " metros"
+        );
+
+
+    circuloPrecision =
+        L.circle(
+            [lat, lon],
+            {
+                radius: precision
+            }
         )
-        .openPopup();
+        .addTo(mapa);
 
 
-    // ========================================
-    // SI SE MUEVE EL DESTINO
-    // ========================================
+    marcadorUsuario.openPopup();
+}
 
-    marcadorDestino.on(
-        "dragend",
-        function () {
 
-            const posicion =
-                marcadorDestino.getLatLng();
+// ========================================
+// CARGAR ESTACIONES
+// ========================================
 
-            cargarEstaciones(
-                posicion.lat,
-                posicion.lng
-            );
+async function cargarEstaciones(
+    lat,
+    lon,
+    opciones = {}
+) {
 
-        }
+    const resultado =
+        document.getElementById(
+            "resultado"
+        );
+
+
+    resultado.innerHTML =
+        "⏳ Buscando estaciones de GNC...";
+
+
+    prepararMapa(
+        lat,
+        lon
     );
+
+
+    // ========================================
+    // MARCADOR DESTINO
+    // ========================================
+
+    if (
+        opciones.tipo === "destino"
+    ) {
+
+        if (marcadorDestino) {
+
+            mapa.removeLayer(
+                marcadorDestino
+            );
+        }
+
+
+        marcadorDestino =
+            L.marker(
+                [lat, lon],
+                {
+                    draggable: true
+                }
+            )
+            .addTo(mapa)
+            .bindPopup(
+                "📍 <b>Punto de búsqueda</b><br>" +
+                "Podés mover este punto."
+            )
+            .openPopup();
+
+
+        marcadorDestino.on(
+            "dragend",
+            function () {
+
+                const posicion =
+                    marcadorDestino.getLatLng();
+
+                cargarEstaciones(
+                    posicion.lat,
+                    posicion.lng,
+                    {
+                        tipo: "destino"
+                    }
+                );
+
+            }
+        );
+    }
 
 
     // ========================================
@@ -151,7 +227,7 @@ async function cargarEstaciones(lat, lon) {
         ) {
 
             resultado.innerHTML =
-                "No se pudieron obtener las estaciones de ENARGAS.";
+                "❌ No se pudieron obtener las estaciones de ENARGAS.";
 
             return;
         }
@@ -193,8 +269,6 @@ async function cargarEstaciones(lat, lon) {
                         "";
 
 
-                    // COORDENADAS OFICIALES
-
                     let latEstacion =
                         parseFloat(
                             a.Latitud
@@ -206,7 +280,7 @@ async function cargarEstaciones(lat, lon) {
                         );
 
 
-                    // RESPALDO
+                    // RESPALDO GEOMETRÍA
 
                     if (
                         !Number.isFinite(
@@ -237,7 +311,10 @@ async function cargarEstaciones(lat, lon) {
                             " " +
                             provincia
                         )
-                        .replace(/\s+/g, " ")
+                        .replace(
+                            /\s+/g,
+                            " "
+                        )
                         .trim();
 
 
@@ -263,7 +340,7 @@ async function cargarEstaciones(lat, lon) {
 
 
         // ========================================
-        // ELIMINAR SIN COORDENADAS
+        // ELIMINAR COORDENADAS INVÁLIDAS
         // ========================================
 
         estaciones =
@@ -298,7 +375,7 @@ async function cargarEstaciones(lat, lon) {
 
 
         // ========================================
-        // ORDENAR
+        // ORDENAR POR DISTANCIA
         // ========================================
 
         estaciones.sort(
@@ -344,8 +421,6 @@ async function cargarEstaciones(lat, lon) {
                     estacion.lon;
 
 
-                // MARCADOR
-
                 const marcador =
                     L.marker(
                         [
@@ -380,7 +455,7 @@ async function cargarEstaciones(lat, lon) {
                         🚗 Waze
                     </a>
 
-                    <br><br>
+                    &nbsp;&nbsp;
 
                     <a
                         target="_blank"
@@ -395,8 +470,6 @@ async function cargarEstaciones(lat, lon) {
                     marcador
                 );
 
-
-                // LISTA
 
                 resultado.innerHTML += `
 
@@ -444,7 +517,7 @@ async function cargarEstaciones(lat, lon) {
         ) {
 
             resultado.innerHTML =
-                "No encontramos estaciones de GNC en la zona.";
+                "❌ No encontramos estaciones de GNC en la zona.";
 
         }
 
@@ -452,12 +525,12 @@ async function cargarEstaciones(lat, lon) {
     } catch (error) {
 
         console.error(
-            "Error:",
+            "Error ENARGAS:",
             error
         );
 
         resultado.innerHTML =
-            "Ocurrió un error al consultar ENARGAS.";
+            "❌ Ocurrió un error al consultar ENARGAS.";
 
     }
 
@@ -471,11 +544,14 @@ async function cargarEstaciones(lat, lon) {
 function buscar() {
 
     const resultado =
-        document.getElementById("resultado");
+        document.getElementById(
+            "resultado"
+        );
 
 
     resultado.innerHTML =
-        "📍 Obteniendo tu ubicación precisa...";
+        "📍 Buscando tu ubicación GPS precisa...<br><br>" +
+        "Esperá unos segundos.";
 
 
     if (
@@ -483,80 +559,184 @@ function buscar() {
     ) {
 
         resultado.innerHTML =
-            "Este dispositivo no permite obtener la ubicación.";
+            "❌ Este dispositivo no permite obtener ubicación.";
 
         return;
     }
 
 
-    navigator.geolocation.getCurrentPosition(
+    let mejorPosicion = null;
 
-        function (posicion) {
-
-            const lat =
-                posicion.coords.latitude;
-
-            const lon =
-                posicion.coords.longitude;
-
-            const precision =
-                posicion.coords.accuracy;
+    let reloj = null;
 
 
-            console.log(
-                "Ubicación:",
-                lat,
-                lon,
-                "Precisión:",
-                precision,
-                "metros"
+    function finalizar() {
+
+        if (reloj) {
+
+            clearTimeout(
+                reloj
             );
-
-
-            // Si la precisión es muy mala,
-            // avisamos pero continuamos.
-
-            if (
-                precision > 150
-            ) {
-
-                resultado.innerHTML =
-                    "⚠️ La ubicación obtenida tiene una precisión aproximada de " +
-                    Math.round(precision) +
-                    " metros.<br><br>" +
-                    "Buscando estaciones...";
-
-            }
-
-
-            cargarEstaciones(
-                lat,
-                lon
-            );
-
-        },
-
-        function (error) {
-
-            console.error(
-                "Error de ubicación:",
-                error
-            );
-
-
-            resultado.innerHTML =
-                "❌ No pudimos obtener tu ubicación.<br><br>" +
-                "Verificá que la ubicación/GPS esté activada y que hayas permitido el acceso a la ubicación.";
-
-        },
-
-        {
-            enableHighAccuracy: true,
-            timeout: 20000,
-            maximumAge: 0
         }
 
+
+        if (!mejorPosicion) {
+
+            resultado.innerHTML =
+                "❌ No pudimos obtener una ubicación GPS válida.";
+
+            return;
+        }
+
+
+        const lat =
+            mejorPosicion.coords.latitude;
+
+        const lon =
+            mejorPosicion.coords.longitude;
+
+        const precision =
+            mejorPosicion.coords.accuracy;
+
+
+        ultimaUbicacion = {
+
+            lat:
+                lat,
+
+            lon:
+                lon,
+
+            precision:
+                precision
+        };
+
+
+        prepararMapa(
+            lat,
+            lon
+        );
+
+
+        mostrarUbicacionUsuario(
+            lat,
+            lon,
+            precision
+        );
+
+
+        let aviso = "";
+
+
+        if (
+            precision > 100
+        ) {
+
+            aviso =
+                "<br><br>⚠️ <b>La precisión del GPS es baja.</b><br>" +
+                "El teléfono indica aproximadamente " +
+                Math.round(precision) +
+                " metros de margen.<br>" +
+                "Si el marcador aparece lejos de donde estás, " +
+                "el problema está en la ubicación que entrega el teléfono.";
+
+        }
+
+
+        resultado.innerHTML =
+            "📍 <b>Ubicación detectada</b><br>" +
+            "Precisión aproximada: " +
+            Math.round(precision) +
+            " metros" +
+            aviso +
+            "<br><br>⏳ Buscando estaciones...";
+
+
+        cargarEstaciones(
+            lat,
+            lon,
+            {
+                tipo: "usuario"
+            }
+        );
+
+    }
+
+
+    function recibirPosicion(
+        posicion
+    ) {
+
+        console.log(
+            "GPS:",
+            posicion.coords.latitude,
+            posicion.coords.longitude,
+            "Precisión:",
+            posicion.coords.accuracy
+        );
+
+
+        if (
+            !mejorPosicion ||
+            posicion.coords.accuracy <
+            mejorPosicion.coords.accuracy
+        ) {
+
+            mejorPosicion =
+                posicion;
+        }
+
+
+        // Si conseguimos una precisión
+        // muy buena, terminamos antes.
+
+        if (
+            posicion.coords.accuracy <= 30
+        ) {
+
+            finalizar();
+
+        }
+
+    }
+
+
+    function errorGPS(
+        error
+    ) {
+
+        console.error(
+            "GPS:",
+            error
+        );
+
+    }
+
+
+    navigator.geolocation.watchPosition(
+        recibirPosicion,
+        errorGPS,
+        {
+            enableHighAccuracy:
+                true,
+
+            timeout:
+                20000,
+
+            maximumAge:
+                0
+        }
     );
+
+
+    // Esperamos hasta 15 segundos
+    // buscando una mejor lectura.
+
+    reloj =
+        setTimeout(
+            finalizar,
+            15000
+        );
 
 }
 
@@ -590,7 +770,7 @@ async function buscarDestino() {
     if (!texto) {
 
         alert(
-            "Escribí un destino."
+            "Escribí una dirección."
         );
 
         return;
@@ -604,20 +784,23 @@ async function buscarDestino() {
 
 
     resultado.innerHTML =
-        "🔎 Buscando dirección...";
+        "🔎 Buscando dirección en Argentina...";
 
 
     // ========================================
     // ARCGIS
+    // LIMITADO A ARGENTINA
     // ========================================
 
     const url =
         "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates" +
         "?SingleLine=" +
         encodeURIComponent(texto) +
-        "&f=json" +
-        "&maxLocations=5" +
-        "&outFields=Match_addr,Addr_type,Score";
+        "&sourceCountry=ARG" +
+        "&category=Address" +
+        "&maxLocations=8" +
+        "&outFields=Match_addr,Addr_type,Score,City,Region,Country" +
+        "&f=json";
 
 
     try {
@@ -635,7 +818,99 @@ async function buscarDestino() {
         ) {
 
             resultado.innerHTML =
-                "❌ No encontré esa dirección.";
+                "❌ No encontré esa dirección en Argentina.<br><br>" +
+                "Probá agregando la localidad o CABA.";
+
+            return;
+        }
+
+
+        // ========================================
+        // FILTRAR CANDIDATOS
+        // ========================================
+
+        let candidatos =
+            datos.candidates.filter(
+                candidato => {
+
+                    const direccion =
+                        (
+                            candidato.address ||
+                            candidato.attributes?.Match_addr ||
+                            ""
+                        ).toLowerCase();
+
+
+                    const pais =
+                        (
+                            candidato.attributes?.Country ||
+                            ""
+                        ).toLowerCase();
+
+
+                    // Si ArcGIS informa país,
+                    // exigimos Argentina.
+
+                    if (
+                        pais &&
+                        !pais.includes(
+                            "argentina"
+                        )
+                    ) {
+
+                        return false;
+                    }
+
+
+                    // Evitamos resultados que
+                    // claramente sean países
+                    // o lugares demasiado generales.
+
+                    if (
+                        direccion.includes(
+                            "usa"
+                        ) ||
+                        direccion.includes(
+                            "united states"
+                        ) ||
+                        direccion.includes(
+                            "brasil"
+                        ) ||
+                        direccion.includes(
+                            "brazil"
+                        ) ||
+                        direccion.includes(
+                            "chile"
+                        ) ||
+                        direccion.includes(
+                            "uruguay"
+                        ) ||
+                        direccion.includes(
+                            "paraguay"
+                        ) ||
+                        direccion.includes(
+                            "bolivia"
+                        )
+                    ) {
+
+                        return false;
+                    }
+
+
+                    return true;
+
+                }
+            );
+
+
+        if (
+            candidatos.length === 0
+        ) {
+
+            resultado.innerHTML =
+                "❌ No encontré una coincidencia válida en Argentina.<br><br>" +
+                "Agregá la localidad, por ejemplo:<br>" +
+                "<b>Independencia 3933, CABA</b>";
 
             return;
         }
@@ -650,12 +925,12 @@ async function buscarDestino() {
             <div class="estacion">
 
                 <h3>
-                    📍 Elegí la ubicación
+                    📍 Elegí la dirección
                 </h3>
 
                 <p>
-                    Encontramos varias coincidencias.
-                    Elegí la que corresponda:
+                    No voy a elegir una ubicación por vos.
+                    Seleccioná la que corresponda:
                 </p>
 
             </div>
@@ -663,17 +938,17 @@ async function buscarDestino() {
         `;
 
 
-        datos.candidates.forEach(
+        candidatos.forEach(
             (candidato, indice) => {
 
                 const lat =
                     Number(
-                        candidato.location.y
+                        candidato.location?.y
                     );
 
                 const lon =
                     Number(
-                        candidato.location.x
+                        candidato.location?.x
                     );
 
 
@@ -681,6 +956,7 @@ async function buscarDestino() {
                     !Number.isFinite(lat) ||
                     !Number.isFinite(lon)
                 ) {
+
                     return;
                 }
 
@@ -688,15 +964,29 @@ async function buscarDestino() {
                 const direccion =
                     candidato.address ||
                     candidato.attributes?.Match_addr ||
-                    "Ubicación encontrada";
+                    "Dirección encontrada";
 
 
                 const score =
-                    candidato.score
-                        ? Math.round(
-                            candidato.score
-                        )
-                        : "";
+                    Number(
+                        candidato.score
+                    );
+
+
+                let textoScore =
+                    "";
+
+
+                if (
+                    Number.isFinite(score)
+                ) {
+
+                    textoScore =
+                        "Coincidencia: " +
+                        Math.round(score) +
+                        "%";
+
+                }
 
 
                 resultado.innerHTML += `
@@ -705,27 +995,26 @@ async function buscarDestino() {
                         class="estacion"
                         style="
                             cursor:pointer;
-                            border:2px solid #1565c0;
+                            border:2px solid #0b5ed7;
                         "
-                        onclick="seleccionarDestino(
-                            ${lat},
-                            ${lon},
-                            ${indice}
-                        )"
+                        onclick="
+                            seleccionarDestino(
+                                ${lat},
+                                ${lon}
+                            )
+                        "
                     >
 
                         <h3>
                             📍 ${direccion}
                         </h3>
 
-                        ${
-                            score
-                            ? `<p>Coincidencia: ${score}%</p>`
-                            : ""
-                        }
+                        <p>
+                            ${textoScore}
+                        </p>
 
                         <p>
-                            👉 Tocá para buscar GNC cerca de esta ubicación
+                            👉 Tocá esta opción
                         </p>
 
                     </div>
@@ -739,13 +1028,13 @@ async function buscarDestino() {
     } catch (error) {
 
         console.error(
-            "Error:",
+            "Error dirección:",
             error
         );
 
 
         resultado.innerHTML =
-            "❌ No se pudo buscar la dirección.";
+            "❌ No se pudo consultar el buscador de direcciones.";
 
     }
 
@@ -753,18 +1042,20 @@ async function buscarDestino() {
 
 
 // ========================================
-// SELECCIONAR DESTINO
+// SELECCIONAR DIRECCIÓN
 // ========================================
 
 function seleccionarDestino(
     lat,
-    lon,
-    indice
+    lon
 ) {
 
     cargarEstaciones(
         lat,
-        lon
+        lon,
+        {
+            tipo: "destino"
+        }
     );
 
 }
