@@ -13,31 +13,27 @@ function sanitizarCoordenadas(rawLat, rawLon) {
 
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-    // En Argentina tanto Latitud como Longitud son SIEMPRE negativas
     lat = -Math.abs(lat);
     lon = -Math.abs(lon);
 
-    // Si la latitud es mayor en valor absoluto que la longitud, están intercambiadas
-    // En Argentina: Lon está entre -53 y -75 (|Lon| > 50), Lat está entre -20 y -56 (|Lat| < 56).
     if (Math.abs(lat) > Math.abs(lon)) {
         let temp = lat;
         lat = lon;
         lon = temp;
     }
 
-    // Validar rango geográfico aproximado de Argentina
     if (lat < -56.0 || lat > -20.0 || lon < -75.0 || lon > -53.0) {
-        return null; // Fuera de Argentina
+        return null;
     }
 
     return { lat, lon };
 }
 
 // ========================================
-// CALCULAR DISTANCIA (Fórmula Haversine)
+// CALCULAR DISTANCIA (Haversine)
 // ========================================
 function distancia(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Radio de la Tierra en km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
 
@@ -61,7 +57,6 @@ function prepararMapa(lat, lon) {
             attribution: "© OpenStreetMap"
         }).addTo(mapa);
 
-        // Tocar en cualquier parte del mapa para recalcular búsqueda allí
         mapa.on("click", function (e) {
             actualizarUbicacionManual(e.latlng.lat, e.latlng.lng);
         });
@@ -73,23 +68,22 @@ function prepararMapa(lat, lon) {
 }
 
 // ========================================
-// MOSTRAR Y PERMITIR MOVER MI UBICACIÓN
+// MOSTRAR UBICACIÓN DEL USUARIO
 // ========================================
 function mostrarUbicacionUsuario(lat, lon, precision = 0) {
     if (marcadorUsuario) mapa.removeLayer(marcadorUsuario);
     if (circuloPrecision) mapa.removeLayer(circuloPrecision);
 
-    // Permitir arrastrar el marcador del usuario por si el GPS le pifia
     marcadorUsuario = L.marker([lat, lon], { draggable: true })
         .addTo(mapa)
         .bindPopup(
             "📍 <b>Tu ubicación</b><br>" +
-            (precision ? "Precisión GPS: ~" + Math.round(precision) + "m<br>" : "") +
-            "<i>👉 Podés arrastrar este marcador si no es tu posición exacta.</i>"
+            (precision ? "Margen GPS: ~" + Math.round(precision) + "m<br>" : "") +
+            "<i>👉 Podés arrastrar si querés ajustar.</i>"
         );
 
     if (precision && precision > 0) {
-        circuloPrecision = L.circle([lat, lon], { radius: precision, color: '#0b5ed7', fillOpacity: 0.15 }).addTo(mapa);
+        circuloPrecision = L.circle([lat, lon], { radius: precision, color: '#0b5ed7', fillOpacity: 0.12 }).addTo(mapa);
     }
 
     marcadorUsuario.openPopup();
@@ -107,7 +101,7 @@ function actualizarUbicacionManual(lat, lon) {
 }
 
 // ========================================
-// CARGAR ESTACIONES DE GNC (ENARGAS)
+// CARGAR ESTACIONES DE GNC
 // ========================================
 async function cargarEstaciones(lat, lon, opciones = {}) {
     const resultado = document.getElementById("resultado");
@@ -117,13 +111,12 @@ async function cargarEstaciones(lat, lon, opciones = {}) {
 
     prepararMapa(lat, lon);
 
-    // MARCADOR DESTINO (SI BUSCÓ DIRECCIÓN)
     if (opciones.tipo === "destino") {
         if (marcadorDestino) mapa.removeLayer(marcadorDestino);
 
         marcadorDestino = L.marker([lat, lon], { draggable: true })
             .addTo(mapa)
-            .bindPopup("📍 <b>Punto de búsqueda</b><br>Podés arrastrar este punto.")
+            .bindPopup("📍 <b>Punto de búsqueda</b><br>Podés mover este punto.")
             .openPopup();
 
         marcadorDestino.on("dragend", function () {
@@ -162,19 +155,16 @@ async function cargarEstaciones(lat, lon, opciones = {}) {
             let rawLat = null;
             let rawLon = null;
 
-            // 1. Probar geometría del servicio ArcGIS
             if (estacion.geometry && estacion.geometry.y && estacion.geometry.x) {
                 rawLat = estacion.geometry.y;
                 rawLon = estacion.geometry.x;
             }
 
-            // 2. Si falla, probar atributos de texto
             if (!rawLat || !rawLon) {
                 rawLat = a.Latitud || a.LATITUD || a.latitud;
                 rawLon = a.Longitud || a.LONGITUD || a.longitud;
             }
 
-            // Sanitizar coordenadas para Argentina
             const coords = sanitizarCoordenadas(rawLat, rawLon);
 
             if (coords) {
@@ -191,10 +181,7 @@ async function cargarEstaciones(lat, lon, opciones = {}) {
             }
         });
 
-        // Ordenar por distancia (de menor a mayor)
         estacionesProcesadas.sort((a, b) => a.distancia - b.distancia);
-
-        // Tomar las 10 más cercanas
         const cercanas = estacionesProcesadas.slice(0, 10);
 
         resultado.innerHTML = "";
@@ -240,53 +227,73 @@ async function cargarEstaciones(lat, lon, opciones = {}) {
 }
 
 // ========================================
-// BUSCAR CERCA MÍO (GPS)
+// BUSCAR CERCA MÍO (GPS CON AFINACIÓN SATELITAL)
 // ========================================
 function buscar() {
     const resultado = document.getElementById("resultado");
     if (!resultado) return;
 
-    resultado.innerHTML = "📍 Solicitando GPS del teléfono...<br><br>Si el navegador pide permiso de ubicación, seleccionalo.";
+    resultado.innerHTML = "📡 Conectando con satélites GPS...<br><br>Esperá unos segundos para fijar la precisión exacta.";
 
     if (!navigator.geolocation) {
-        resultado.innerHTML = "❌ Tu dispositivo o navegador no admite geolocalización.";
+        resultado.innerHTML = "❌ Tu dispositivo no admite geolocalización.";
         return;
     }
 
-    const opcionesGPS = {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
-    };
+    let mejorPosicion = null;
+    let watchId = null;
+    let temporizador = null;
 
-    navigator.geolocation.getCurrentPosition(
+    function finalizarGPS() {
+        if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+        if (temporizador) clearTimeout(temporizador);
+
+        if (!mejorPosicion) {
+            resultado.innerHTML = "❌ No se pudo obtener señal GPS. Probá en un espacio abierto o buscá por dirección arriba.";
+            return;
+        }
+
+        const lat = mejorPosicion.coords.latitude;
+        const lon = mejorPosicion.coords.longitude;
+        const precision = mejorPosicion.coords.accuracy;
+
+        prepararMapa(lat, lon);
+        mostrarUbicacionUsuario(lat, lon, precision);
+
+        resultado.innerHTML = `📍 <b>Ubicación detectada (margen: ~${Math.round(precision)}m)</b><br><br>⏳ Cargando estaciones...`;
+
+        cargarEstaciones(lat, lon, { tipo: "usuario" });
+    }
+
+    // Escuchamos varias lecturas seguidas para filtrar la señal falsa de antenas
+    watchId = navigator.geolocation.watchPosition(
         (posicion) => {
-            const lat = posicion.coords.latitude;
-            const lon = posicion.coords.longitude;
-            const precision = posicion.coords.accuracy;
-
-            prepararMapa(lat, lon);
-            mostrarUbicacionUsuario(lat, lon, precision);
-
-            let mensajePrecision = "";
-            if (precision > 100) {
-                mensajePrecision = "<br>⚠️ <i>Margen de precisión GPS amplio (~" + Math.round(precision) + "m). Podés arrastrar el marcador en el mapa para ajustar tu posición real.</i>";
+            if (!mejorPosicion || posicion.coords.accuracy < mejorPosicion.coords.accuracy) {
+                mejorPosicion = posicion;
             }
 
-            resultado.innerHTML = `📍 <b>Ubicación detectada</b> ${mensajePrecision}<br><br>⏳ Buscando estaciones...`;
-
-            cargarEstaciones(lat, lon, { tipo: "usuario" });
+            // Si obtenemos una precisión excelente (menor a 25 metros), cortamos al instante
+            if (posicion.coords.accuracy <= 25) {
+                finalizarGPS();
+            }
         },
         (error) => {
-            console.error("GPS Error:", error);
-            resultado.innerHTML = "❌ No se pudo obtener la ubicación exacta del celular.<br>Asegurate de activar el GPS y dar permisos de ubicación en el navegador, o buscá ingresando una dirección arriba.";
+            console.error("Error GPS:", error);
+            if (!mejorPosicion) finalizarGPS();
         },
-        opcionesGPS
+        {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0
+        }
     );
+
+    // Damos un tiempo máximo de 6 segundos para recopilar la mejor señal disponible
+    temporizador = setTimeout(finalizarGPS, 6000);
 }
 
 // ========================================
-// BUSCAR DIRECCIÓN (OpenStreetMap + ArcGIS)
+// BUSCAR DIRECCIÓN
 // ========================================
 async function buscarDestino() {
     const campo = document.getElementById("destino");
@@ -304,7 +311,6 @@ async function buscarDestino() {
     resultado.innerHTML = "🔎 Buscando dirección en Argentina...";
 
     try {
-        // 1. Intentar primero con OpenStreetMap Nominatim
         const urlOSM = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(texto)}&countrycodes=ar&limit=5`;
         const resOSM = await fetch(urlOSM);
         const datosOSM = await resOSM.json();
@@ -318,7 +324,6 @@ async function buscarDestino() {
                 lon: parseFloat(item.lon)
             }));
         } else {
-            // 2. Fallback a ArcGIS
             const urlArcGIS = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?SingleLine=${encodeURIComponent(texto + ", Argentina")}&maxLocations=5&f=json`;
             const resArcGIS = await fetch(urlArcGIS);
             const datosArcGIS = await resArcGIS.json();
@@ -332,7 +337,6 @@ async function buscarDestino() {
             }
         }
 
-        // Filtrar coordenadas válidas en Argentina
         candidatos = candidatos.filter(c => {
             const coords = sanitizarCoordenadas(c.lat, c.lon);
             return coords !== null;
