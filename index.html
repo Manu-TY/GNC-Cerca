@@ -51,7 +51,7 @@
         .search-box {
             display: flex;
             gap: 8px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         input[type="text"] {
@@ -81,7 +81,15 @@
         .btn-gps {
             width: 100%;
             background-color: #198754;
+            color: white;
+            padding: 14px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
             margin-bottom: 10px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
         }
 
         .btn-gps:active {
@@ -92,12 +100,34 @@
             width: 100%;
             background-color: #ffc107;
             color: #000;
-            margin-bottom: 15px;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 10px;
             display: none;
         }
 
         .btn-pwa:active {
             background-color: #e0a800;
+        }
+
+        .btn-compartir {
+            width: 100%;
+            background-color: #0d6efd;
+            color: white;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .btn-compartir:active {
+            background-color: #0b5ed7;
         }
 
         #mapa {
@@ -120,13 +150,18 @@
     </header>
 
     <div class="search-box">
-        <input type="text" id="destino" placeholder="Buscar dirección o ciudad...">
+        <input type="text" id="destino" placeholder="Buscar por dirección o ciudad...">
         <button onclick="buscarDestino()">Buscar</button>
     </div>
 
-    <button class="btn-gps" onclick="buscar()">📍 Buscar cerca mío (GPS)</button>
+    <!-- Botón principal de búsqueda GPS -->
+    <button class="btn-gps" onclick="buscar()">⛽ Buscar estaciones de GNC cerca mío</button>
 
-    <button id="btnInstalar" class="btn-pwa">📲 ¡Instalar App en el Celular!</button>
+    <!-- Botón para instalar PWA (se muestra cuando es elegible) -->
+    <button id="btnInstalar" class="btn-pwa">📲 Instalar App en el Celular</button>
+
+    <!-- Botón para compartir por WhatsApp / Apps -->
+    <button class="btn-compartir" onclick="compartirApp()">📲 Compartir App por WhatsApp</button>
 
     <div id="mapa"></div>
 
@@ -138,7 +173,7 @@
     <!-- Lógica principal de la aplicación -->
     <script src="app.js"></script>
 
-    <!-- Registro de Service Worker y Manejo de Instalación PWA -->
+    <!-- Registro de Service Worker, PWA e Instalación -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
@@ -163,6 +198,24 @@
                 });
             }
         });
+
+        // Función para compartir la aplicación
+        function compartirApp() {
+            const texto = '⛽ *GNC Cerca* - Encontrá las estaciones de GNC más cercanas en Argentina con tu GPS:\n';
+            const url = 'https://manu-ty.github.io/GNC-Cerca/';
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'GNC Cerca - Argentina',
+                    text: 'Encontrá las estaciones de GNC más cercanas en Argentina:',
+                    url: url
+                }).catch((err) => console.log('Compartir cancelado:', err));
+            } else {
+                // Fallback directo a WhatsApp
+                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto + url)}`;
+                window.open(waUrl, '_blank');
+            }
+        }
     </script>
 </body>
 </html>
