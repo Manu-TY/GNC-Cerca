@@ -2,15 +2,12 @@
 // CONFIGURACIÓN Y VARIABLES GLOBALES
 // ==========================================
 
-// Tu clave de Web3Forms para reportes anónimos por mail
 const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494"; 
 
-// LISTA NEGRA: Coordenadas ("Latitud, Longitud") de estaciones a ocultar
 const ESTACIONES_ELIMINADAS = [
     "-34.626903, -58.420278"
 ];
 
-// Endpoint oficial de ENARGAS
 const ENARGAS_API_URL = "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query";
 
 let map = null;
@@ -18,24 +15,15 @@ let userMarker = null;
 let stationMarkers = [];
 let userCoords = null;
 
-// Inyección de estilo CSS automático para eliminar recuadros feos de Leaflet en los íconos
-(function inyectarEstiloIcono() {
-    if (!document.getElementById('gnc-icon-style')) {
-        const style = document.createElement('style');
-        style.id = 'gnc-icon-style';
-        style.innerHTML = `
-            .custom-gnc-pin {
-                background: transparent !important;
-                border: none !important;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-})();
+const gncIconClasico = L.icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+});
 
-// ==========================================
-// BUSCADOR FLEXIBLE DE ATRIBUTOS
-// ==========================================
 function getAttrValue(attr, candidateKeys) {
     if (!attr || typeof attr !== 'object') return "";
     
@@ -78,9 +66,6 @@ function getAttrValue(attr, candidateKeys) {
     return "";
 }
 
-// ==========================================
-// INICIALIZACIÓN DEL MAPA
-// ==========================================
 function initMap(lat = -34.6037, lng = -58.3816) {
     if (!map) {
         map = L.map('mapa').setView([lat, lng], 13);
@@ -98,9 +83,6 @@ function initMap(lat = -34.6037, lng = -58.3816) {
     }
 }
 
-// ==========================================
-// SANITIZACIÓN Y CORRECCIÓN DE COORDENADAS
-// ==========================================
 function sanitizarCoordenada(valor) {
     if (valor === null || valor === undefined) return null;
     let valStr = valor.toString().trim().replace(',', '.');
@@ -140,50 +122,39 @@ function estaEliminada(lat, lng) {
     });
 }
 
-// ==========================================
-// GEOLOCALIZACIÓN GPS DEL USUARIO
-// ==========================================
 function buscar() {
     const divResultado = document.getElementById('resultado');
-    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#0b5ed7;">📡 Obteniendo tu ubicación exacta por GPS...</p>`;
+    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#1976d2;">Obteniendo ubicación GPS...</p>`;
 
     if (!navigator.geolocation) {
         divResultado.innerHTML = `<p style="color:red; text-align:center;">Tu navegador no soporta geolocalización GPS.</p>`;
         return;
     }
 
-    const gpsOptions = {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
-    };
-
     navigator.geolocation.getCurrentPosition(
         (pos) => {
-            actualizarUbicacionUsuario(pos.coords.latitude, pos.coords.longitude, "Tu ubicación GPS exacta");
+            actualizarUbicacionUsuario(pos.coords.latitude, pos.coords.longitude, "Tu ubicación GPS actual");
         },
         (err) => {
-            console.warn("Error GPS principal, reintentando:", err);
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    actualizarUbicacionUsuario(pos.coords.latitude, pos.coords.longitude, "Tu ubicación GPS exacta");
+                    actualizarUbicacionUsuario(pos.coords.latitude, pos.coords.longitude, "Tu ubicación GPS actual");
                 },
                 (errorFinal) => {
                     divResultado.innerHTML = `
                         <div style="background:#fff3cd; color:#856404; padding:12px; border-radius:8px; text-align:center;">
-                            ⚠️ No pudimos obtener tu ubicación precisa.<br>
-                            Comprobá que la ubicación de tu teléfono esté activada o buscá por dirección arriba.
+                            No pudimos obtener la ubicación por GPS. Podés buscar escribiendo la dirección en el buscador.
                         </div>
                     `;
                 },
                 { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
         },
-        gpsOptions
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
 }
 
-function actualizarUbicacionUsuario(lat, lng, tituloPopup = "Tu ubicación") {
+function actualizarUbicacionUsuario(lat, lng, tituloPopup = "Ubicación seleccionada") {
     userCoords = { lat, lng };
     initMap(lat, lng);
 
@@ -192,32 +163,30 @@ function actualizarUbicacionUsuario(lat, lng, tituloPopup = "Tu ubicación") {
     }
 
     userMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
-    userMarker.bindPopup(`<b>📍 ${tituloPopup}</b><br><small>(Podés arrastrar este marcador si la ubicación no es exacta)</small>`).openPopup();
+    userMarker.bindPopup(`<b>${tituloPopup}</b><br><small>(Podés arrastrar este marcador si necesitás ajustarlo)</small>`).openPopup();
 
     userMarker.on('dragend', function(e) {
         const newPos = e.target.getLatLng();
-        actualizarUbicacionUsuario(newPos.lat, newPos.lng, "Ubicación ajustada manualmente");
+        actualizarUbicacionUsuario(newPos.lat, newPos.lng, "Ubicación ajustada");
     });
 
     cargarEstacionesENARGAS(lat, lng);
 }
 
-// ==========================================
-// BÚSQUEDA POR DIRECCIÓN CON SELECCIÓN DE OPCIONES
-// ==========================================
+// BÚSQUEDA POR UN SOLO CAMPO
 function buscarDestino() {
-    const input = document.getElementById('destino') ? document.getElementById('destino').value.trim() : "";
-    
-    if (!input) {
-        alert("Por favor, ingresá una dirección, ciudad o localidad.");
+    const inputDireccion = document.getElementById('destino') ? document.getElementById('destino').value.trim() : "";
+
+    if (!inputDireccion) {
+        alert("Por favor, ingresá una dirección o localidad.");
         return;
     }
 
+    const query = `${inputDireccion}, Argentina`;
     const divResultado = document.getElementById('resultado');
-    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#0b5ed7;">🔍 Buscando coincidencias para "${input}"...</p>`;
+    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#1976d2;">Buscando "${inputDireccion}"...</p>`;
 
-    // Traemos hasta 5 opciones posibles en Argentina
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}&countrycodes=ar&limit=5`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=6`;
 
     fetch(url)
         .then(res => res.json())
@@ -225,47 +194,39 @@ function buscarDestino() {
             if (!data || data.length === 0) {
                 divResultado.innerHTML = `
                     <div style="background:#fff3cd; color:#856404; padding:12px; border-radius:8px; text-align:center;">
-                        ⚠️ No se encontraron resultados para esa dirección.<br>
-                        <small>Intentá agregar la localidad o provincia (ej: "Av. Belgrano 500, Mendoza").</small>
+                        No se encontraron resultados para "${inputDireccion}".<br>
+                        <small>Verificá la escritura o agregá la localidad (ej: Belgrano 500, Avellaneda).</small>
                     </div>`;
                 return;
             }
 
-            if (data.length === 1) {
-                // Si hay 1 sola coincidencia, la selecciona directamente
-                const lat = parseFloat(data[0].lat);
-                const lng = parseFloat(data[0].lon);
-                actualizarUbicacionUsuario(lat, lng, `Búsqueda: ${data[0].display_name.split(',')[0]}`);
-            } else {
-                // Si hay varias coincidencias, despliega las opciones para que el usuario elija
-                let html = `
-                    <div style="background:#e7f1ff; border:1px solid #b6d4fe; padding:12px; border-radius:8px; margin-bottom:15px;">
-                        <p style="margin:0 0 10px 0; font-weight:bold; color:#084298; font-size:0.95rem;">
-                            📍 Encontramos varias coincidencias. Seleccioná la correcta:
-                        </p>
-                        <div style="display:flex; flex-direction:column; gap:8px;">
+            let html = `
+                <div style="background:#e8f5e9; border:1px solid #c8e6c9; padding:12px; border-radius:8px; margin-bottom:15px;">
+                    <p style="margin:0 0 10px 0; font-weight:bold; color:#2e7d32; font-size:0.95rem;">
+                        Elegí la opción correcta:
+                    </p>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+            `;
+
+            data.forEach((item) => {
+                const lat = parseFloat(item.lat);
+                const lng = parseFloat(item.lon);
+                const nombreLimpio = item.display_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                const tituloPrincipal = item.display_name.split(',')[0];
+
+                html += `
+                    <button onclick="seleccionarOpcionDestino(${lat}, ${lng}, '${nombreLimpio}')" 
+                            style="text-align:left; background:white; border:1px solid #ced4da; padding:10px 12px; border-radius:6px; cursor:pointer; font-size:0.88rem; transition:all 0.2s;"
+                            onmouseover="this.style.background='#f1f8e9'; this.style.borderColor='#2e7d32';" 
+                            onmouseout="this.style.background='white'; this.style.borderColor='#ced4da';">
+                        <b style="color:#111;">📍 ${tituloPrincipal}</b><br>
+                        <small style="color:#6c757d;">${item.display_name}</small>
+                    </button>
                 `;
+            });
 
-                data.forEach((item) => {
-                    const lat = parseFloat(item.lat);
-                    const lng = parseFloat(item.lon);
-                    const nombreLimpio = item.display_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    const tituloPrincipal = item.display_name.split(',')[0];
-
-                    html += `
-                        <button onclick="seleccionarOpcionDestino(${lat}, ${lng}, '${nombreLimpio}')" 
-                                style="text-align:left; background:white; border:1px solid #ced4da; padding:10px 12px; border-radius:6px; cursor:pointer; font-size:0.88rem; transition:all 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.05);"
-                                onmouseover="this.style.background='#f8f9fa'; this.style.borderColor='#0b5ed7';" 
-                                onmouseout="this.style.background='white'; this.style.borderColor='#ced4da';">
-                            <b style="color:#111;">📍 ${tituloPrincipal}</b><br>
-                            <small style="color:#6c757d;">${item.display_name}</small>
-                        </button>
-                    `;
-                });
-
-                html += `</div></div>`;
-                divResultado.innerHTML = html;
-            }
+            html += `</div></div>`;
+            divResultado.innerHTML = html;
         })
         .catch(err => {
             console.error("Error al buscar dirección:", err);
@@ -275,12 +236,9 @@ function buscarDestino() {
 
 function seleccionarOpcionDestino(lat, lng, nombreCompleto) {
     const titulo = nombreCompleto.split(',')[0];
-    actualizarUbicacionUsuario(lat, lng, `Búsqueda: ${titulo}`);
+    actualizarUbicacionUsuario(lat, lng, `Ubicación: ${titulo}`);
 }
 
-// ==========================================
-// PROCESAMIENTO DE ATRIBUTOS (BANDERA, NOMBRE, DIRECCIÓN)
-// ==========================================
 function detectarBandera(attributes) {
     const rawText = getAttrValue(attributes, [
         "BANDERA", "BANDERA_COMERCIAL", "MARCA", "EMPRESA", "OPERADOR", 
@@ -337,12 +295,9 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
-// ==========================================
-// CARGAR ESTACIONES DESDE ENARGAS
-// ==========================================
 function cargarEstacionesENARGAS(userLat, userLng) {
     const divResultado = document.getElementById('resultado');
-    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#0b5ed7;">⛽ Consultando base oficial ENARGAS...</p>`;
+    divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#2e7d32;">Consultando estaciones de GNC en ENARGAS...</p>`;
 
     stationMarkers.forEach(m => map.removeLayer(m));
     stationMarkers = [];
@@ -359,7 +314,7 @@ function cargarEstacionesENARGAS(userLat, userLng) {
         .then(res => res.json())
         .then(data => {
             if (!data.features || data.features.length === 0) {
-                divResultado.innerHTML = `<p style="text-align:center; padding:15px;">No se encontraron estaciones registradas en la base de datos.</p>`;
+                divResultado.innerHTML = `<p style="text-align:center; padding:15px;">No se encontraron estaciones registradas.</p>`;
                 return;
             }
 
@@ -374,9 +329,7 @@ function cargarEstacionesENARGAS(userLat, userLng) {
 
                 let coords = corregirUbicacionStation(rawLat, rawLng);
                 if (coords) {
-                    if (estaEliminada(coords.lat, coords.lng)) {
-                        return; 
-                    }
+                    if (estaEliminada(coords.lat, coords.lng)) return;
 
                     const distKm = calcularDistanciaKm(userLat, userLng, coords.lat, coords.lng);
                     const banderaInfo = detectarBandera(attr);
@@ -403,8 +356,7 @@ function cargarEstacionesENARGAS(userLat, userLng) {
             console.error("Error al consultar ENARGAS:", err);
             divResultado.innerHTML = `
                 <div style="background:#f8d7da; color:#721c24; padding:12px; border-radius:8px; text-align:center;">
-                    ❌ No se pudo conectar con la base de datos del ENARGAS.<br>
-                    Por favor, verificá tu conexión a internet e intentá nuevamente.
+                    No se pudo conectar con la base de datos de ENARGAS. Verificá tu conexión.
                 </div>
             `;
         });
@@ -414,35 +366,18 @@ function mostrarResultadoEstaciones(estaciones) {
     const divResultado = document.getElementById('resultado');
 
     if (estaciones.length === 0) {
-        divResultado.innerHTML = `<p style="text-align:center; padding:15px;">No hay estaciones de GNC cercanas a tu posición actual.</p>`;
+        divResultado.innerHTML = `<p style="text-align:center; padding:15px;">No hay estaciones de GNC cercanas a tu posición.</p>`;
         return;
     }
 
-    let html = `<h2 style="font-size:1.2rem; margin-bottom:12px; color:#0b5ed7;">Estaciones de GNC encontradas (${estaciones.length}):</h2>`;
-
-    // ÍCONO SVG PIN VERDE CON SURTIDOR
-    const gncIcon = L.divIcon({
-        className: 'custom-gnc-pin',
-        html: `
-            <div style="width:36px; height:48px; filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
-                    <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="#2e7d32" stroke="#ffffff" stroke-width="2"/>
-                    <circle cx="18" cy="18" r="11" fill="#ffffff"/>
-                    <path fill="#1b5e20" d="M12 11h7v7h-7zm8-3h-9c-.6 0-1 .4-1 1v12c0 .6.4 1 1 1h9c.6 0 1-.4 1-1V9c0-.6-.4-1-1-1zm2 2h1c.6 0 1 .4 1 1v5c0 1.1-.9 2-2 2"/>
-                </svg>
-            </div>
-        `,
-        iconSize: [36, 48],
-        iconAnchor: [18, 48],
-        popupAnchor: [0, -44]
-    });
+    let html = `<h2 style="font-size:1.1rem; margin-bottom:12px; color:#2e7d32;">Estaciones de GNC más cercanas (${estaciones.length}):</h2>`;
 
     estaciones.forEach((e) => {
         const distTexto = e.distancia < 1 
             ? `${Math.round(e.distancia * 1000)} metros` 
             : `${e.distancia.toFixed(1)} km`;
 
-        const marker = L.marker([e.lat, e.lng], { icon: gncIcon }).addTo(map);
+        const marker = L.marker([e.lat, e.lng], { icon: gncIconClasico }).addTo(map);
         
         const popupContent = `
             <div style="font-family:sans-serif; min-width:180px;">
@@ -471,7 +406,7 @@ function mostrarResultadoEstaciones(estaciones) {
                         ${e.bandera.nombre}
                     </span>
                     <span style="background:#e8f5e9; color:#2e7d32; font-weight:bold; font-size:0.85rem; padding:3px 8px; border-radius:6px;">
-                        📍 a ${distTexto}
+                        a ${distTexto}
                     </span>
                 </div>
 
@@ -481,17 +416,17 @@ function mostrarResultadoEstaciones(estaciones) {
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
                     <a href="https://www.google.com/maps/dir/?api=1&destination=${e.lat},${e.lng}" target="_blank" 
                        style="flex:1; min-width:120px; text-align:center; background:#4285F4; color:white; padding:8px 10px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:0.85rem;">
-                       🚗 Google Maps
+                       Google Maps
                     </a>
                     <a href="https://waze.com/ul?ll=${e.lat},${e.lng}&navigate=yes" target="_blank" 
                        style="flex:1; min-width:120px; text-align:center; background:#33ccff; color:#000; padding:8px 10px; border-radius:6px; text-decoration:none; font-weight:bold; font-size:0.85rem;">
-                       🧭 Waze
+                       Waze
                     </a>
                 </div>
 
                 <button onclick="reportarEstacionPorEmail('${nombreLimpio}', '${direccionLimpia}', ${e.lat}, ${e.lng})" 
                         style="width:100%; background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:7px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;">
-                    ⚠️ Reportar estación inexistente / cerrada
+                    Reportar estación inexistente / cerrada
                 </button>
             </div>
         `;
@@ -500,18 +435,10 @@ function mostrarResultadoEstaciones(estaciones) {
     divResultado.innerHTML = html;
 }
 
-// ==========================================
-// ENVÍO DE REPORTE ANÓNIMO POR EMAIL
-// ==========================================
 function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
-    if (!WEB3FORMS_ACCESS_KEY) {
-        alert("El sistema de reportes está en mantenimiento.");
-        return;
-    }
+    if (!WEB3FORMS_ACCESS_KEY) return;
 
-    const confirmar = confirm(`¿Querés enviar un reporte indicando que la estación "${nombre}" no existe o está cerrada?`);
-    
-    if (!confirmar) return;
+    if (!confirm(`¿Querés reportar que la estación "${nombre}" no existe o está cerrada?`)) return;
 
     fetch("https://api.web3forms.com/submit", {
         method: "POST",
@@ -521,7 +448,7 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
         },
         body: JSON.stringify({
             access_key: WEB3FORMS_ACCESS_KEY,
-            subject: `⚠️ Reporte GNC Inexistente: ${nombre}`,
+            subject: `Reporte GNC: ${nombre}`,
             from_name: "App GNC Cerca",
             estacion_nombre: nombre,
             estacion_direccion: direccion,
@@ -532,20 +459,17 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert("✅ ¡Gracias por colaborar! El reporte fue enviado correctamente.");
+            alert("Reporte enviado correctamente.");
         } else {
-            alert("❌ Ocurrió un error al enviar el reporte.");
+            alert("Error al enviar el reporte.");
         }
     })
     .catch(err => {
-        console.error("Error al enviar reporte:", err);
-        alert("❌ Error de conexión al enviar el reporte.");
+        console.error(err);
+        alert("Error de conexión al enviar reporte.");
     });
 }
 
-// ==========================================
-// AUTO-INICIALIZACIÓN AL CARGAR LA PÁGINA
-// ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    initMap(); // Inicializa únicamente el mapa. No ejecuta búsquedas automáticas.
+    initMap();
 });
