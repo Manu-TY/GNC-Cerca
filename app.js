@@ -365,11 +365,18 @@ function mostrarResultadoEstaciones(estaciones) {
 
     let html = `<h2 style="font-size:1.2rem; margin-bottom:12px; color:#0b5ed7;">Estaciones de GNC encontradas (${estaciones.length}):</h2>`;
 
+    // NVO ÍCONO OPCIÓN 1: Pin Verde Vectorial SVG con Surtidor (100% nativo)
     const gncIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -30]
+        iconUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="48" viewBox="0 0 36 48">
+                <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="#2e7d32" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="18" cy="18" r="11" fill="#ffffff"/>
+                <path fill="#1b5e20" d="M12 11h7v7h-7zm8-3h-9c-.6 0-1 .4-1 1v12c0 .6.4 1 1 1h9c.6 0 1-.4 1-1V9c0-.6-.4-1-1-1zm2 2h1c.6 0 1 .4 1 1v5c0 1.1-.9 2-2 2"/>
+            </svg>
+        `),
+        iconSize: [36, 48],
+        iconAnchor: [18, 48],
+        popupAnchor: [0, -44]
     });
 
     estaciones.forEach((e) => {
@@ -483,6 +490,5 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
 // AUTO-INICIALIZACIÓN AL CARGAR LA PÁGINA
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-    initMap();
-    buscar(); // Iniciar búsqueda GPS automáticamente al abrir
+    initMap(); // Inicializa únicamente el mapa centrado. Ya NO busca automáticamente al iniciar.
 });
