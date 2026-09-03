@@ -121,7 +121,7 @@ function estaEliminada(lat, lng) {
     return ESTACIONES_ELIMINADAS.some(elim => {
         let partes = elim.split(',').map(p => parseFloat(p.trim()));
         if (partes.length === 2 && !isNaN(partes[0]) && !isNaN(partes[1])) {
-            // Tolerancia de ~50 metros para evitar diferencias de redondeo
+            // Margen de ~50 metros para tolerar diferencias de redondeo
             return Math.abs(partes[0] - lat) < 0.0005 && Math.abs(partes[1] - lng) < 0.0005;
         }
         return false;
@@ -365,11 +365,28 @@ function mostrarResultadoEstaciones(estaciones) {
 
     let html = `<h2 style="font-size:1.2rem; margin-bottom:12px; color:#0b5ed7;">Estaciones de GNC encontradas (${estaciones.length}):</h2>`;
 
-    const gncIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -30]
+    // ÍCONO OPCIÓN 1: Pin Verde redondo con Emoji Surtidor ⛽ (Nativo, ultrarrápido)
+    const gncIcon = L.divIcon({
+        className: '', // Vacío para remover estilos predeterminados de Leaflet
+        html: `
+            <div style="
+                background-color: #2e7d32;
+                width: 36px;
+                height: 36px;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 2px solid #ffffff;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            ">
+                <span style="transform: rotate(45deg); font-size: 18px; display: inline-block; line-height: 1;">⛽</span>
+            </div>
+        `,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -34]
     });
 
     estaciones.forEach((e) => {
