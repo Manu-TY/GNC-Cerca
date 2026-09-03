@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="110" fill="#2e7d32"/>
+  <path fill="#ffffff" d="M160 120 h140 a20 20 0 0 1 20 20 v230 a20 20 0 0 1 -20 20 h-140 a20 20 0 0 1 -20 -20 v-230 a20 20 0 0 1 20 -20 z"/>
+  <rect x="180" y="150" width="100" height="70" rx="10" fill="#2e7d32"/>
+  <path stroke="#ffffff" stroke-width="28" stroke-linecap="round" fill="none" d="M320 200 h30 a20 20 0 0 1 20 20 v100 a20 20 0 0 0 20 20 h0 a20 20 0 0 0 20 -20 v-60"/>
+  <path fill="#ffffff" d="M395 240 l30 -20 v30 z"/>
+  <text x="230" y="310" text-anchor="middle" fill="#2e7d32" font-family="Arial, sans-serif" font-weight="bold" font-size="42">GNC</text>
+</svg>
