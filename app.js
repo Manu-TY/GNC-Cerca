@@ -7,7 +7,7 @@ const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494";
 
 // LISTA NEGRA: Pegá acá las coordenadas ("Latitud, Longitud") de las estaciones reportadas que querés Ocultar.
 // Ejemplo: "-34.6152, -58.4321"
-const ESTACIONES_ELIMINADAS = [
+const ESTACIONES_ELIMINADAS = [-34626903, -58.420278
     // Agregá las coordenadas entre comillas y separadas por comas cuando te lleguen los mails:
     // "-34.6152, -58.4321",
 ];
