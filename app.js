@@ -1,4 +1,53 @@
 // ==========================================
+// CONFIGURACIÓN Y PWA INSTALL PROMPT
+// ==========================================
+
+let deferredPrompt = null;
+
+// Registro del Service Worker para cumplir requisitos PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker registrado con éxito', reg))
+            .catch(err => console.warn('Error registrando Service Worker', err));
+    });
+}
+
+// Captura del evento de instalación
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Muestra el botón de instalación si la app no está instalada
+    const btnInstalar = document.getElementById('btnInstalarPWA');
+    if (btnInstalar) {
+        btnInstalar.style.display = 'block';
+    }
+});
+
+function instalarPWA() {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+
+    deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('El usuario aceptó la instalación');
+        }
+        deferredPrompt = null;
+        const btnInstalar = document.getElementById('btnInstalarPWA');
+        if (btnInstalar) btnInstalar.style.display = 'none';
+    });
+}
+
+window.addEventListener('appinstalled', () => {
+    console.log('PWA instalada exitosamente');
+    const btnInstalar = document.getElementById('btnInstalarPWA');
+    if (btnInstalar) btnInstalar.style.display = 'none';
+    deferredPrompt = null;
+});
+
+// ==========================================
 // CONFIGURACIÓN Y VARIABLES GLOBALES
 // ==========================================
 
@@ -173,7 +222,6 @@ function actualizarUbicacionUsuario(lat, lng, tituloPopup = "Ubicación seleccio
     cargarEstacionesENARGAS(lat, lng);
 }
 
-// BÚSQUEDA POR UN SOLO CAMPO
 function buscarDestino() {
     const inputDireccion = document.getElementById('destino') ? document.getElementById('destino').value.trim() : "";
 
