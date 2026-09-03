@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gnc-cerca-v2'; // Incrementamos versión
+const CACHE_NAME = 'gnc-cerca-v5'; // Versión 5 para forzar la actualización
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,7 @@ const ASSETS = [
   './manifest.json'
 ];
 
-// Instalación inmediata
+// Instalación inmediata del Service Worker
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(
@@ -14,7 +14,7 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// Borrar archivos viejos de versiones anteriores
+// Borrar automáticamente archivos guardados de versiones anteriores
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -29,7 +29,7 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Buscar primero la versión más nueva en internet (Network First)
+// Estrategia Network First: Prioriza siempre buscar la versión más nueva en internet
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(e.request).catch(() => caches.match(e.request))
