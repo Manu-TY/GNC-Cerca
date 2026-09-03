@@ -5,6 +5,13 @@
 // Tu clave de Web3Forms para reportes anónimos por mail
 const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494"; 
 
+// LISTA NEGRA: Pegá acá las coordenadas ("Latitud, Longitud") de las estaciones reportadas que querés Ocultar.
+// Ejemplo: "-34.6152, -58.4321"
+const ESTACIONES_ELIMINADAS = [
+    // Agregá las coordenadas entre comillas y separadas por comas cuando te lleguen los mails:
+    // "-34.6152, -58.4321",
+];
+
 // URL del Endpoint oficial de ENARGAS (ArcGIS REST Service)
 const ENARGAS_API_URL = "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query";
 
@@ -14,14 +21,13 @@ let stationMarkers = [];
 let userCoords = null;
 
 // ==========================================
-// BUSCADOR FLEXIBLE DE ATRIBUTOS (INSPECTOR UNIVERSAL)
+// BUSCADOR FLEXIBLE DE ATRIBUTOS
 // ==========================================
 function getAttrValue(attr, candidateKeys) {
     if (!attr || typeof attr !== 'object') return "";
     
     const keys = Object.keys(attr);
     
-    // 1. Busqueda exacta
     for (let cand of candidateKeys) {
         if (attr[cand] !== undefined && attr[cand] !== null) {
             let val = attr[cand].toString().trim();
@@ -29,7 +35,6 @@ function getAttrValue(attr, candidateKeys) {
         }
     }
 
-    // 2. Busqueda sin importar mayúsculas/minúsculas
     for (let cand of candidateKeys) {
         const candLower = cand.toLowerCase();
         for (let key of keys) {
@@ -42,7 +47,6 @@ function getAttrValue(attr, candidateKeys) {
         }
     }
 
-    // 3. Busqueda parcial (ej. si la clave es "Razon_Social" o "RAZONSOCIA")
     for (let cand of candidateKeys) {
         const candClean = cand.toLowerCase().replace(/[^a-z0-9]/g, '');
         for (let key of keys) {
@@ -62,9 +66,9 @@ function getAttrValue(attr, candidateKeys) {
 }
 
 // ==========================================
-// INICIALIZACIÓN DEL MAPA (LEAFLET)
+// INICIALIZACIÓN DEL MAPA
 // ==========================================
-function initMap(lat = -34.6037, lng = -58.3816) { // Por defecto: Buenos Aires
+function initMap(lat = -34.6037, lng = -58.3816) {
     if (!map) {
         map = L.map('mapa').setView([lat, lng], 13);
 
@@ -111,6 +115,19 @@ function corregirUbicacionStation(rawLat, rawLng) {
     if (!esCoordenadaValidaArgentina(lat, lng)) return null;
 
     return { lat, lng };
+}
+
+// Comprobar si una estación está en la lista de eliminadas
+function estaEliminada(lat, lng) {
+    const coordTexto = `${lat}, ${lng}`;
+    return ESTACIONES_ELIMINADAS.some(elim => {
+        let partes = elim.split(',').map(p => parseFloat(p.trim()));
+        if (partes.length === 2 && !isNaN(partes[0]) && !isNaN(partes[1])) {
+            // Comparación de margen de error de coordenadas por redondeo
+            return Math.abs(partes[0] - lat) < 0.0001 && Math.abs(partes[1] - lng) < 0.0001;
+        }
+        return false;
+    });
 }
 
 // ==========================================
@@ -303,6 +320,11 @@ function cargarEstacionesENARGAS(userLat, userLng) {
 
                 let coords = corregirUbicacionStation(rawLat, rawLng);
                 if (coords) {
+                    // FILTRO: Si la estación está en la lista de eliminadas, se ignora
+                    if (estaEliminada(coords.lat, coords.lng)) {
+                        return; 
+                    }
+
                     const distKm = calcularDistanciaKm(userLat, userLng, coords.lat, coords.lng);
                     const banderaInfo = detectarBandera(attr);
                     const nombre = obtenerNombreEstacion(attr);
@@ -376,7 +398,6 @@ function mostrarResultadoEstaciones(estaciones) {
         marker.bindPopup(popupContent);
         stationMarkers.push(marker);
 
-        // Limpiar comillas para evitar errores JS
         const nombreLimpio = e.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const direccionLimpia = e.direccion.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
@@ -417,7 +438,7 @@ function mostrarResultadoEstaciones(estaciones) {
 }
 
 // ==========================================
-// ENVÍO DE REPORTE ANÓNIMO POR EMAIL (WEB3FORMS)
+// ENVÍO DE REPORTE ANÓNIMO POR EMAIL
 // ==========================================
 function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
     if (!WEB3FORMS_ACCESS_KEY) {
