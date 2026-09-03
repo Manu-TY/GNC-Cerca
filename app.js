@@ -2,6 +2,7 @@
 // CONFIGURACIÓN Y VARIABLES GLOBALES
 // ==========================================
 
+// Tu clave de Web3Forms para reportes anónimos por mail
 const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494"; 
 
 // URL del Endpoint oficial de ENARGAS (ArcGIS REST Service)
@@ -11,6 +12,54 @@ let map = null;
 let userMarker = null;
 let stationMarkers = [];
 let userCoords = null;
+
+// ==========================================
+// BUSCADOR FLEXIBLE DE ATRIBUTOS (INSPECTOR UNIVERSAL)
+// ==========================================
+function getAttrValue(attr, candidateKeys) {
+    if (!attr || typeof attr !== 'object') return "";
+    
+    const keys = Object.keys(attr);
+    
+    // 1. Busqueda exacta
+    for (let cand of candidateKeys) {
+        if (attr[cand] !== undefined && attr[cand] !== null) {
+            let val = attr[cand].toString().trim();
+            if (val !== "" && val !== "null" && val !== "undefined") return val;
+        }
+    }
+
+    // 2. Busqueda sin importar mayúsculas/minúsculas
+    for (let cand of candidateKeys) {
+        const candLower = cand.toLowerCase();
+        for (let key of keys) {
+            if (key.toLowerCase() === candLower) {
+                if (attr[key] !== undefined && attr[key] !== null) {
+                    let val = attr[key].toString().trim();
+                    if (val !== "" && val !== "null" && val !== "undefined") return val;
+                }
+            }
+        }
+    }
+
+    // 3. Busqueda parcial (ej. si la clave es "Razon_Social" o "RAZONSOCIA")
+    for (let cand of candidateKeys) {
+        const candClean = cand.toLowerCase().replace(/[^a-z0-9]/g, '');
+        for (let key of keys) {
+            if (['objectid', 'fid', 'globalid', 'shape'].includes(key.toLowerCase())) continue;
+            
+            const keyClean = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (keyClean.includes(candClean) || candClean.includes(keyClean)) {
+                if (attr[key] !== undefined && attr[key] !== null) {
+                    let val = attr[key].toString().trim();
+                    if (val !== "" && val !== "null" && val !== "undefined") return val;
+                }
+            }
+        }
+    }
+
+    return "";
+}
 
 // ==========================================
 // INICIALIZACIÓN DEL MAPA (LEAFLET)
@@ -24,7 +73,6 @@ function initMap(lat = -34.6037, lng = -58.3816) { // Por defecto: Buenos Aires
             attribution: '© OpenStreetMap - Datos ENARGAS'
         }).addTo(map);
 
-        // Permitir al usuario cambiar su ubicación haciendo clic en el mapa
         map.on('click', function(e) {
             actualizarUbicacionUsuario(e.latlng.lat, e.latlng.lng, "Ubicación seleccionada en el mapa");
         });
@@ -160,18 +208,13 @@ function buscarDestino() {
 }
 
 // ==========================================
-// DETECCIÓN DE BANDERA Y MARCA
+// PROCESAMIENTO DE ATRIBUTOS (BANDERA, NOMBRE, DIRECCIÓN)
 // ==========================================
 function detectarBandera(attributes) {
-    const rawText = (
-        attributes.BANDERA || 
-        attributes.BANDERA_COMERCIAL || 
-        attributes.MARCA || 
-        attributes.EMPRESA || 
-        attributes.OPERADOR || 
-        attributes.RAZON_SOCIAL || 
-        ""
-    ).toString().toUpperCase();
+    const rawText = getAttrValue(attributes, [
+        "BANDERA", "BANDERA_COMERCIAL", "MARCA", "EMPRESA", "OPERADOR", 
+        "RAZON_SOCIAL", "RAZONSOCIA", "COMERCIALIZADORA", "NOMBRE"
+    ]).toUpperCase();
 
     if (rawText.includes("YPF")) {
         return { nombre: "YPF", color: "#0052cc", textColor: "#ffffff" };
@@ -195,13 +238,17 @@ function detectarBandera(attributes) {
 }
 
 function obtenerNombreEstacion(attributes) {
-    return attributes.RAZON_SOCIAL || attributes.OPERADOR || attributes.NOMBRE || attributes.ESTACION || "Estación de GNC";
+    const val = getAttrValue(attributes, [
+        "RAZON_SOCIAL", "RAZONSOCIA", "RAZON", "NOMBRE", "OPERADOR", 
+        "ESTACION", "DENOMINACION", "FANTASIA", "NOMBRE_FANTASIA", "EMPRESA", "TITULAR"
+    ]);
+    return val !== "" ? val : "Estación de GNC";
 }
 
 function obtenerDireccionEstacion(attributes) {
-    let calle = attributes.DOMICILIO || attributes.DIRECCION || attributes.CALLE || "";
-    let localidad = attributes.LOCALIDAD || attributes.PARTIDO || "";
-    let provincia = attributes.PROVINCIA || "";
+    let calle = getAttrValue(attributes, ["DOMICILIO", "DIRECCION", "CALLE", "UBICACION"]);
+    let localidad = getAttrValue(attributes, ["LOCALIDAD", "PARTIDO", "MUNICIPIO", "CIUDAD"]);
+    let provincia = getAttrValue(attributes, ["PROVINCIA", "ESTADO"]);
 
     let partes = [calle, localidad, provincia].filter(p => p && p.trim() !== "");
     return partes.length > 0 ? partes.join(", ") : "Dirección no especificada";
@@ -251,8 +298,8 @@ function cargarEstacionesENARGAS(userLat, userLng) {
                 const attr = feature.attributes || {};
                 const geom = feature.geometry || {};
 
-                let rawLat = geom.y || attr.LATITUD || attr.LAT;
-                let rawLng = geom.x || attr.LONGITUD || attr.LNG || attr.LON;
+                let rawLat = geom.y || getAttrValue(attr, ["LATITUD", "LAT", "Y"]);
+                let rawLng = geom.x || getAttrValue(attr, ["LONGITUD", "LNG", "LON", "X"]);
 
                 let coords = corregirUbicacionStation(rawLat, rawLng);
                 if (coords) {
@@ -329,6 +376,10 @@ function mostrarResultadoEstaciones(estaciones) {
         marker.bindPopup(popupContent);
         stationMarkers.push(marker);
 
+        // Limpiar comillas para evitar errores JS
+        const nombreLimpio = e.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const direccionLimpia = e.direccion.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
         html += `
             <div style="background:white; border-radius:10px; padding:14px; margin-bottom:12px; box-shadow:0 2px 5px rgba(0,0,0,0.08); border-left: 5px solid ${e.bandera.color};">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
@@ -354,8 +405,7 @@ function mostrarResultadoEstaciones(estaciones) {
                     </a>
                 </div>
 
-                <!-- Botón de Reporte silencioso por Email -->
-                <button onclick="reportarEstacionPorEmail('${e.nombre.replace(/'/g, "\\'")}', '${e.direccion.replace(/'/g, "\\'")}', ${e.lat}, ${e.lng})" 
+                <button onclick="reportarEstacionPorEmail('${nombreLimpio}', '${direccionLimpia}', ${e.lat}, ${e.lng})" 
                         style="width:100%; background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:7px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;">
                     ⚠️ Reportar estación inexistente / cerrada
                 </button>
@@ -367,11 +417,11 @@ function mostrarResultadoEstaciones(estaciones) {
 }
 
 // ==========================================
-// ENVÍO DE REPORTE ANÓNIMO Y PRIVADO POR EMAIL
+// ENVÍO DE REPORTE ANÓNIMO POR EMAIL (WEB3FORMS)
 // ==========================================
 function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
-    if (!WEB3FORMS_ACCESS_KEY || WEB3FORMS_ACCESS_KEY === "TU_ACCESS_KEY_AQUI") {
-        alert("El sistema de reportes está en mantenimiento. Por favor, probá nuevamente más tarde.");
+    if (!WEB3FORMS_ACCESS_KEY) {
+        alert("El sistema de reportes está en mantenimiento.");
         return;
     }
 
@@ -379,7 +429,6 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
     
     if (!confirmar) return;
 
-    // Enviar solicitud invisible en segundo plano
     fetch("https://api.web3forms.com/submit", {
         method: "POST",
         headers: {
@@ -401,7 +450,7 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
         if (data.success) {
             alert("✅ ¡Gracias por colaborar! El reporte fue enviado correctamente.");
         } else {
-            alert("❌ Ocurrió un error al enviar el reporte. Por favor intentá más tarde.");
+            alert("❌ Ocurrió un error al enviar el reporte.");
         }
     })
     .catch(err => {
