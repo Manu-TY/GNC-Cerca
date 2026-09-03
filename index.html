@@ -7,6 +7,7 @@
     
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.svg">
     <meta name="theme-color" content="#2e7d32">
 
     <!-- Leaflet CSS -->
@@ -30,53 +31,39 @@
 
         header {
             text-align: center;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
 
         header h1 {
             color: #2e7d32;
             font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
 
         .search-container {
-            background: white;
-            padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            background: #ffffff;
+            padding: 14px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             margin-bottom: 12px;
         }
 
-        .input-group {
+        .search-box {
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
-        .input-group input {
-            padding: 10px 12px;
+        .search-box input {
+            flex: 1;
+            padding: 12px;
             border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 0.9rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
             outline: none;
         }
 
-        .input-group input:focus {
+        .search-box input:focus {
             border-color: #2e7d32;
-        }
-
-        #destino {
-            flex: 2;
-            min-width: 180px;
-        }
-
-        #localidad {
-            flex: 1;
-            min-width: 130px;
         }
 
         .btn-actions {
@@ -85,13 +72,17 @@
         }
 
         .btn {
-            padding: 10px 14px;
+            padding: 11px 14px;
             border: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 8px;
+            font-weight: 600;
             font-size: 0.9rem;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
         }
 
         .btn-primary {
@@ -100,26 +91,18 @@
             flex: 2;
         }
 
-        .btn-primary:hover {
-            background: #1b5e20;
-        }
-
         .btn-gps {
-            background: #0b5ed7;
+            background: #1976d2;
             color: white;
             flex: 1;
-        }
-
-        .btn-gps:hover {
-            background: #0a58ca;
         }
 
         #mapa {
             height: 350px;
             width: 100%;
-            border-radius: 10px;
+            border-radius: 12px;
             margin-bottom: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             z-index: 1;
         }
 
@@ -131,17 +114,16 @@
 <body>
 
     <header>
-        <h1>⛽ GNC Cerca</h1>
+        <h1>GNC Cerca</h1>
     </header>
 
     <div class="search-container">
-        <div class="input-group">
-            <input type="text" id="destino" placeholder="Dirección (ej: Av. Rivadavia 1200)">
-            <input type="text" id="localidad" placeholder="Localidad (ej: Quilmes)">
+        <div class="search-box">
+            <input type="text" id="destino" placeholder="Escribí una calle o localidad (ej: Rivadavia 1200, Quilmes)">
         </div>
         <div class="btn-actions">
-            <button class="btn btn-primary" onclick="buscarDestino()">🔍 Buscar Direccion</button>
-            <button class="btn btn-gps" onclick="buscar()">📡 Usar GPS</button>
+            <button class="btn btn-primary" onclick="buscarDestino()">Buscar</button>
+            <button class="btn btn-gps" onclick="buscar()">Mi Ubicación</button>
         </div>
     </div>
 
