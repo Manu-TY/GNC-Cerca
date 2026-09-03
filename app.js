@@ -118,12 +118,11 @@ function corregirUbicacionStation(rawLat, rawLng) {
 
 // Comprobar si una estación está en la lista de eliminadas
 function estaEliminada(lat, lng) {
-    const coordTexto = `${lat}, ${lng}`;
     return ESTACIONES_ELIMINADAS.some(elim => {
         let partes = elim.split(',').map(p => parseFloat(p.trim()));
         if (partes.length === 2 && !isNaN(partes[0]) && !isNaN(partes[1])) {
-            // Comparación de margen de error de coordenadas por redondeo
-            return Math.abs(partes[0] - lat) < 0.0001 && Math.abs(partes[1] - lng) < 0.0001;
+            // Tolerancia de ~50 metros para evitar diferencias de redondeo
+            return Math.abs(partes[0] - lat) < 0.0005 && Math.abs(partes[1] - lng) < 0.0005;
         }
         return false;
     });
@@ -397,8 +396,9 @@ function mostrarResultadoEstaciones(estaciones) {
         marker.bindPopup(popupContent);
         stationMarkers.push(marker);
 
-        const nombreLimpio = e.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const direccionLimpia = e.direccion.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        // Sanitización para evitar errores si el texto trae saltos de línea o comillas
+        const nombreLimpio = e.nombre.replace(/[\r\n]+/g, ' ').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const direccionLimpia = e.direccion.replace(/[\r\n]+/g, ' ').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
         html += `
             <div style="background:white; border-radius:10px; padding:14px; margin-bottom:12px; box-shadow:0 2px 5px rgba(0,0,0,0.08); border-left: 5px solid ${e.bandera.color};">
@@ -484,4 +484,5 @@ function reportarEstacionPorEmail(nombre, direccion, lat, lng) {
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
     initMap();
+    buscar(); // Iniciar búsqueda GPS automáticamente al abrir
 });
