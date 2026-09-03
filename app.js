@@ -2,8 +2,7 @@
 // CONFIGURACIÓN Y VARIABLES GLOBALES
 // ==========================================
 
-// PEGÁ ACÁ LA ACCESS KEY QUE RECIBISTE DE WEB3FORMS (ENTRE LAS COMILLAS)
-const WEB3FORMS_ACCESS_KEY = "TU_ACCESS_KEY_AQUI"; 
+const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494"; 
 
 // URL del Endpoint oficial de ENARGAS (ArcGIS REST Service)
 const ENARGAS_API_URL = "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query";
