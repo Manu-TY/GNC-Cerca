@@ -224,6 +224,7 @@ function actualizarUbicacionUsuario(lat, lng, tituloPopup = "Ubicación seleccio
     cargarEstacionesENARGAS(lat, lng);
 }
 
+// BÚSQUEDA FLEXIBLE Y MULTI-OPCIÓN DE DIRECCIÓN
 function buscarDestino() {
     const inputDireccion = document.getElementById('destino') ? document.getElementById('destino').value.trim() : "";
 
@@ -232,16 +233,43 @@ function buscarDestino() {
         return;
     }
 
-    const query = `${inputDireccion}, Argentina`;
     const divResultado = document.getElementById('resultado');
     divResultado.innerHTML = `<p style="text-align:center; padding:15px; font-weight:bold; color:#1976d2;">Buscando "${inputDireccion}"...</p>`;
 
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ar&limit=6`;
+    // Preparamos las variantes de búsqueda
+    let variantesQuery = [`${inputDireccion}, Argentina`];
 
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (!data || data.length === 0) {
+    // Detectamos si el usuario ya escribió un tipo de vía
+    const lower = inputDireccion.toLowerCase();
+    const tienePrefijo = /^(av|av\.|avenida|calle|ruta|rn|rp|pje|pasaje|diagonal)\b/i.test(lower);
+
+    // Si no puso prefijo, agregamos búsquedas alternativas con Av. y Avenida
+    if (!tienePrefijo) {
+        variantesQuery.push(`Av. ${inputDireccion}, Argentina`);
+        variantesQuery.push(`Avenida ${inputDireccion}, Argentina`);
+    }
+
+    // Ejecutamos las búsquedas en paralelo en OpenStreetMap
+    const peticiones = variantesQuery.map(q => 
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=ar&limit=5`)
+            .then(res => res.json())
+            .catch(() => [])
+    );
+
+    Promise.all(peticiones)
+        .then(resultadosArray => {
+            // Combinar todos los resultados en un solo array
+            let resultadosCombinados = [];
+            let idsVistos = new Set();
+
+            resultadosArray.flat().forEach(item => {
+                if (item && item.place_id && !idsVistos.has(item.place_id)) {
+                    idsVistos.add(item.place_id);
+                    resultadosCombinados.push(item);
+                }
+            });
+
+            if (resultadosCombinados.length === 0) {
                 divResultado.innerHTML = `
                     <div style="background:#fff3cd; color:#856404; padding:12px; border-radius:8px; text-align:center;">
                         No se encontraron resultados para "${inputDireccion}".<br>
@@ -249,6 +277,9 @@ function buscarDestino() {
                     </div>`;
                 return;
             }
+
+            // Tomamos los primeros 6 resultados únicos
+            const mejoresResultados = resultadosCombinados.slice(0, 6);
 
             let html = `
                 <div style="background:#e8f5e9; border:1px solid #c8e6c9; padding:12px; border-radius:8px; margin-bottom:15px;">
@@ -258,7 +289,7 @@ function buscarDestino() {
                     <div style="display:flex; flex-direction:column; gap:8px;">
             `;
 
-            data.forEach((item) => {
+            mejoresResultados.forEach((item) => {
                 const lat = parseFloat(item.lat);
                 const lng = parseFloat(item.lon);
                 const nombreLimpio = item.display_name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -283,7 +314,6 @@ function buscarDestino() {
             divResultado.innerHTML = `<p style="color:red; text-align:center;">Error al realizar la búsqueda de dirección.</p>`;
         });
 }
-
 function seleccionarOpcionDestino(lat, lng, nombreCompleto) {
     const titulo = nombreCompleto.split(',')[0];
     actualizarUbicacionUsuario(lat, lng, `Ubicación: ${titulo}`);
