@@ -55,7 +55,8 @@ const WEB3FORMS_ACCESS_KEY = "666bdb64-874a-43f6-81ab-351f14c7e494";
 
 const ESTACIONES_ELIMINADAS = [
     "-34.626903, -58.420278", 
-    "-34.627778, -58.430278" 
+    "-34.627778, -58.430278",
+    "-34.615333, -58.415325"
 ];
 
 const ENARGAS_API_URL = "https://sig.enargas.gov.ar/arcgis/rest/services/Enargas_int/GNC/MapServer/0/query";
