@@ -153,5 +153,15 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
+    <!-- REGISTRO DEL SERVICE WORKER (Para la PWA y APK) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Service Worker registrado correctamente'))
+          .catch(err => console.error('Error al registrar SW:', err));
+      }
+    </script>
+</body>
+</html>
 </body>
 </html>
