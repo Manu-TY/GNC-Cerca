@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gnc-cerca-v17'; // Versión 5 para forzar la actualización
+const CACHE_NAME = 'gnc-cerca-v18'; // Versión 5 para forzar la actualización
 const ASSETS = [
   './',
   './index.html',
